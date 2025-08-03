@@ -137,7 +137,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const factory = gameState.buildings.find(b => b.id === factoryId) as IFactory | undefined;
     const itemInfo = ITEM_DATABASE[itemId];
 
-    if (!factory || !itemInfo || !itemInfo.recipe || !itemInfo.productionTime) return;
+    if (!factory || !itemInfo) return;
 
     if (factory.productionQueue.length >= factory.productionSlots) {
       addToast("No hay espacios de producción disponibles.", 'error');
@@ -145,6 +145,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
     if (factory.level < (itemInfo.requiredFactoryLevel || 1)) {
       addToast(`Se requiere Nivel ${itemInfo.requiredFactoryLevel} para producir ${itemInfo.name}.`, 'error');
+      return;
+    }
+    if (!itemInfo.recipe || typeof itemInfo.productionTime !== 'number') {
+      addToast(`El artículo ${itemInfo.name} no se puede producir.`, 'error');
       return;
     }
 
@@ -155,13 +159,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }
     }
 
+    const timeForOne = itemInfo.productionTime;
+
     setGameState(prevState => {
       const newInventory = { ...prevState.inventory };
       itemInfo.recipe!.forEach(ingredient => {
         newInventory[ingredient.id] -= ingredient.amount * quantity;
       });
 
-      const newQueueItem: ProductionQueueItem = { itemId, quantity, timeRemaining: itemInfo.productionTime * quantity };
+      const newQueueItem: ProductionQueueItem = { itemId, quantity, timeRemaining: timeForOne * quantity };
       const updatedBuildings = prevState.buildings.map(b => 
         b.id === factoryId ? { ...b, productionQueue: [...(b as IFactory).productionQueue, newQueueItem] } : b
       );
