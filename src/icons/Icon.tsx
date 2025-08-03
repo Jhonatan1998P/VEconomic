@@ -1,3 +1,5 @@
+// --- START OF FILE VEconomic-main/src/icons/Icon.tsx ---
+
 import { iconLibrary } from './icon-library';
 
 export type IconName = keyof typeof iconLibrary;
@@ -23,10 +25,6 @@ export default function Icon({ name, className }: IconProps) {
       fill="none"
       className={className}
     >
-      {/* 
-        LA CORRECCIÓN ESTÁ AQUÍ: 
-        En lugar de 'dangerouslySetInnerHTML', usamos el atributo 'd' directamente.
-      */}
       <path
         strokeLinecap="round"
         strokeLinejoin="round"

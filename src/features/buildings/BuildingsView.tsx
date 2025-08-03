@@ -1,15 +1,13 @@
+// --- START OF FILE VEconomic-main/src/features/buildings/BuildingsView.tsx ---
+
 import { useGame } from '../../hooks/useGame';
 import { BUILDING_DATA } from '../../context/GameContext';
 import Icon, { IconName } from '../../icons/Icon';
 import { Building, BuildingType, IFactory, IWarehouse, IResearchLab, IMarketingOffice, IHumanResourcesDept, ILogisticsCenter } from '../../types/game.types';
+import { NavLink } from 'react-router-dom';
 
 export default function BuildingsView() {
   const { gameState, purchaseBuilding } = useGame();
-
-  const existingBuildings = gameState.buildings.reduce((acc, b) => {
-    acc[b.type] = b;
-    return acc;
-  }, {} as Record<BuildingType, Building>);
 
   const buildingTypes = Object.keys(BUILDING_DATA) as BuildingType[];
 
@@ -22,11 +20,11 @@ export default function BuildingsView() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {buildingTypes.map(type => {
-          const building = existingBuildings[type];
+          const ownedBuilding = gameState.buildings.find(b => b.type === type);
           const info = BUILDING_DATA[type];
 
-          if (building) {
-            return <OwnedBuildingCard key={type} building={building} />;
+          if (ownedBuilding) {
+            return <OwnedBuildingCard key={type} building={ownedBuilding} />;
           } else {
             return (
               <PurchaseBuildingCard 
@@ -62,22 +60,38 @@ function OwnedBuildingCard({ building }: OwnedBuildingCardProps) {
     }
   }
 
+  const renderAction = () => {
+    if (building.type === 'FABRICA') {
+      return (
+        <NavLink 
+          to={`/buildings/${building.id}`}
+          className="mt-4 w-full text-center bg-cyan-700 hover:bg-cyan-600 text-white font-semibold py-2 rounded-md transition-colors"
+        >
+          Gestionar
+        </NavLink>
+      );
+    }
+    return (
+      <button disabled className="mt-4 w-full bg-gray-600 text-gray-400 font-semibold py-2 rounded-md cursor-not-allowed">
+        Mejorar
+      </button>
+    )
+  }
+
   return (
     <div className="bg-gray-800 border-l-4 border-cyan-500 rounded-lg shadow-lg p-5 flex flex-col h-full">
       <div className="flex items-start gap-4">
         <Icon name={info.icon as IconName} className="w-10 h-10 text-cyan-400 flex-shrink-0 mt-1" />
         <div>
-          <h3 className="text-xl font-bold text-white">{info.name}</h3>
+          <h3 className="text-xl font-bold text-white">{info.name} (ID: {building.id})</h3>
           <p className="text-sm text-gray-400">Nivel {building.level}</p>
         </div>
       </div>
       <div className="mt-4 flex-grow">
         <p className="text-gray-300">{getBuildingDetails()}</p>
-        <p className="text-gray-300">Mantenimiento: ${building.maintenanceCost}/día</p>
+        <p className="text-gray-300">Mantenimiento: ${building.maintenanceCost.toLocaleString()}/día</p>
       </div>
-      <button className="mt-4 w-full bg-cyan-700 hover:bg-cyan-600 text-white font-semibold py-2 rounded-md transition-colors">
-        Mejorar
-      </button>
+      {renderAction()}
     </div>
   );
 }

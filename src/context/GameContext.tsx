@@ -1,7 +1,10 @@
+// --- START OF FILE VEconomic-main/src/context/GameContext.tsx ---
+
 import React, { createContext, useState, ReactNode } from 'react';
+import { useToast } from '../hooks/useToast';
 import { 
   IGameState, Building, BuildingType, IFactory, IWarehouse, IResearchLab, 
-  IMarketingOffice, IHumanResourcesDept, ILogisticsCenter, ItemId 
+  IMarketingOffice, IHumanResourcesDept, ILogisticsCenter, ItemId, ProductionQueueItem
 } from '../types/game.types';
 import { INITIAL_GAME_STATE } from '../core/initialState';
 import { ITEM_DATABASE } from '../core/game-data/items';
@@ -19,42 +22,73 @@ interface IGameContextType {
   gameState: IGameState;
   advanceDay: () => void;
   purchaseBuilding: (type: BuildingType) => void;
+  startProduction: (factoryId: string, itemId: ItemId, quantity: number) => void;
 }
 
 export const GameContext = createContext<IGameContextType>({} as IGameContextType);
 
 export function GameProvider({ children }: { children: ReactNode }) {
   const [gameState, setGameState] = useState<IGameState>(INITIAL_GAME_STATE);
+  const { addToast } = useToast();
 
   const advanceDay = () => {
     setGameState(prevState => {
+      let newEvents: string[] = [];
+      const newInventory = { ...prevState.inventory };
+
+      const updatedBuildings = prevState.buildings.map(building => {
+        if (building.type === 'FABRICA') {
+          const factory = building as IFactory;
+          const remainingQueue: ProductionQueueItem[] = [];
+
+          factory.productionQueue.forEach(item => {
+            const timeReduction = factory.efficiency / 100;
+            const effectiveTimeRemaining = item.timeRemaining - (1 * timeReduction);
+
+            if (effectiveTimeRemaining <= 0) {
+              const itemInfo = ITEM_DATABASE[item.itemId];
+              newInventory[item.itemId] = (newInventory[item.itemId] || 0) + item.quantity;
+              const eventMsg = `¡Producción de ${item.quantity}x ${itemInfo.name} completada en ${factory.id}!`;
+              newEvents.push(eventMsg);
+              addToast(eventMsg, 'success');
+            } else {
+              remainingQueue.push({ ...item, timeRemaining: effectiveTimeRemaining });
+            }
+          });
+          return { ...factory, productionQueue: remainingQueue };
+        }
+        return building;
+      });
+
       const dailyIncome = 500;
-      const totalMaintenanceCost = prevState.buildings.reduce((sum, building) => sum + building.maintenanceCost, 0);
+      const totalMaintenanceCost = updatedBuildings.reduce((sum, building) => sum + building.maintenanceCost, 0);
       const dailyCosts = 150 + totalMaintenanceCost;
       const netIncome = dailyIncome - dailyCosts;
 
       if (prevState.money < dailyCosts) {
-        alert("¡Fondos insuficientes para cubrir los costos operativos diarios!");
+        addToast("¡Fondos insuficientes para cubrir los costos diarios!", 'error');
         return prevState;
       }
 
       const nextDay = new Date(prevState.date.getTime() + 86400000);
+      newEvents.push(`Día avanzado. Ingresos: $${dailyIncome.toLocaleString()}, Costos: $${dailyCosts.toLocaleString()}`);
 
       return {
         ...prevState,
         money: prevState.money + netIncome,
         date: nextDay,
-        events: [`Día avanzado. Ingresos: $${dailyIncome.toLocaleString()}, Costos: $${dailyCosts.toLocaleString()}`, ...prevState.events].slice(0, 10)
+        buildings: updatedBuildings,
+        inventory: newInventory,
+        events: [...newEvents, ...prevState.events].slice(0, 10)
       };
     });
   };
 
   const purchaseBuilding = (type: BuildingType) => {
     const buildingInfo = BUILDING_DATA[type];
-
     setGameState(prevState => {
       if (prevState.money < buildingInfo.cost) {
-        alert("¡No tienes suficiente dinero!");
+        addToast("¡No tienes suficiente dinero!", 'error');
         return prevState;
       }
 
@@ -63,7 +97,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
       switch (type) {
         case 'FABRICA':
-          newBuilding = { id, type: 'FABRICA', level: 1, productionSlots: 2, efficiency: 60, maintenanceCost: 100 } as IFactory;
+          newBuilding = { id, type: 'FABRICA', level: 1, productionSlots: 2, efficiency: 100, maintenanceCost: 100, productionQueue: [] } as IFactory;
           break;
         case 'ALMACEN':
           newBuilding = { id, type: 'ALMACEN', level: 1, capacity: 1000, maintenanceCost: 50 } as IWarehouse;
@@ -84,6 +118,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           return prevState;
       }
 
+      addToast(`¡${buildingInfo.name} construido exitosamente!`, 'success');
       return {
         ...prevState,
         money: prevState.money - buildingInfo.cost,
@@ -94,7 +129,52 @@ export function GameProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const value = { gameState, advanceDay, purchaseBuilding };
+  const startProduction = (factoryId: string, itemId: ItemId, quantity: number) => {
+    setGameState(prevState => {
+      const factory = prevState.buildings.find(b => b.id === factoryId) as IFactory | undefined;
+      const itemInfo = ITEM_DATABASE[itemId];
+
+      if (!factory || !itemInfo || !itemInfo.recipe || !itemInfo.productionTime) return prevState;
+
+      if (factory.productionQueue.length >= factory.productionSlots) {
+        addToast("No hay espacios de producción disponibles en esta fábrica.", 'error');
+        return prevState;
+      }
+      if (factory.level < (itemInfo.requiredFactoryLevel || 1)) {
+        addToast(`Se requiere una fábrica de nivel ${itemInfo.requiredFactoryLevel} para producir ${itemInfo.name}.`, 'error');
+        return prevState;
+      }
+
+      const newInventory = { ...prevState.inventory };
+      for (const ingredient of itemInfo.recipe) {
+        if ((newInventory[ingredient.id] || 0) < ingredient.amount * quantity) {
+          addToast(`Recursos insuficientes para ${itemInfo.name}.`, 'error');
+          return prevState;
+        }
+        newInventory[ingredient.id] -= ingredient.amount * quantity;
+      }
+
+      const newQueueItem: ProductionQueueItem = {
+        itemId,
+        quantity,
+        timeRemaining: itemInfo.productionTime * quantity,
+      };
+
+      const updatedBuildings = prevState.buildings.map(b => 
+        b.id === factoryId ? { ...b, productionQueue: [...(b as IFactory).productionQueue, newQueueItem] } : b
+      );
+
+      addToast(`Iniciada la producción de ${quantity}x ${itemInfo.name}.`, 'success');
+      return {
+        ...prevState,
+        inventory: newInventory,
+        buildings: updatedBuildings,
+        events: [`Iniciada la producción de ${quantity}x ${itemInfo.name} en ${factory.id}.`, ...prevState.events].slice(0, 10),
+      };
+    });
+  };
+
+  const value = { gameState, advanceDay, purchaseBuilding, startProduction };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 }

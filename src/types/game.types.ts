@@ -1,3 +1,4 @@
+// --- START OF FILE VEconomic-main/src/types/game.types.ts ---
 export type BuildingType = 'FABRICA' | 'ALMACEN' | 'LABORATORIO_ID' | 'OFICINA_MARKETING' | 'DEPARTAMENTO_RRHH' | 'CENTRO_LOGISTICA';
 
 export type ItemId = string;
@@ -8,6 +9,12 @@ export interface RecipeItem {
   amount: number;
 }
 
+export interface ProductionQueueItem {
+  itemId: ItemId;
+  quantity: number;
+  timeRemaining: number;
+}
+
 export interface ItemDefinition {
   name: string;
   category: ItemCategory;
@@ -16,6 +23,7 @@ export interface ItemDefinition {
   baseSellPrice: number;
   recipe?: RecipeItem[];
   requiredFactoryLevel?: number;
+  productionTime?: number;
 }
 
 interface IBuildingBase {
@@ -29,6 +37,7 @@ export interface IFactory extends IBuildingBase {
   type: 'FABRICA';
   productionSlots: number;
   efficiency: number;
+  productionQueue: ProductionQueueItem[];
 }
 
 export interface IWarehouse extends IBuildingBase {
