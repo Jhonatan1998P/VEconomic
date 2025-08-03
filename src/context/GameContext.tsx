@@ -25,6 +25,7 @@ interface IGameContextType {
   purchaseBuilding: (type: BuildingType) => Promise<void>;
   startProduction: (factoryId: string, itemId: ItemId, quantity: number) => Promise<void>;
   upgradeBuilding: (buildingId: string) => Promise<void>;
+  sellItem: (itemId: ItemId, quantity: number) => Promise<void>;
 }
 
 export const GameContext = createContext<IGameContextType>({} as IGameContextType);
@@ -168,7 +169,37 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }));
   };
 
-  const value = { gameState, advanceDay, purchaseBuilding, startProduction, upgradeBuilding };
+  const sellItem = async (itemId: ItemId, quantity: number) => {
+    await withLoading(() => new Promise<void>(resolve => {
+      const itemInfo = ITEM_DATABASE[itemId];
+      const currentAmount = gameState.inventory[itemId] || 0;
+
+      if (!itemInfo) {
+        addToast("El objeto que intentas vender no existe.", 'error');
+        resolve();
+        return;
+      }
+      if (quantity <= 0) {
+        addToast("La cantidad a vender debe ser positiva.", 'error');
+        resolve();
+        return;
+      }
+      if (currentAmount < quantity) {
+        addToast(`No tienes suficientes ${itemInfo.name} para vender.`, 'error');
+        resolve();
+        return;
+      }
+
+      const moneyGained = quantity * itemInfo.baseSellPrice;
+      const event = `Vendiste ${quantity.toLocaleString()}x ${itemInfo.name} por $${moneyGained.toLocaleString()}.`;
+
+      dispatch({ type: GameActionType.SELL_ITEM, payload: { itemId, quantity, moneyGained, event } });
+      addToast(event, 'success');
+      resolve();
+    }));
+  };
+
+  const value = { gameState, advanceDay, purchaseBuilding, startProduction, upgradeBuilding, sellItem };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 }

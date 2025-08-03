@@ -24,6 +24,7 @@ export default function FactoryView({ factory }: FactoryViewProps) {
   const { gameState, startProduction, upgradeBuilding } = useGame();
   const [selectedCategory, setSelectedCategory] = useState<ItemCategory | null>(null);
   const [showOnlyProducible, setShowOnlyProducible] = useState(true);
+  const [showLockedBlueprints, setShowLockedBlueprints] = useState(false);
   const factoryInfo = BUILDING_DATA[factory.type];
 
   const producibleItems = useMemo(() =>
@@ -45,9 +46,9 @@ export default function FactoryView({ factory }: FactoryViewProps) {
   );
 
   const availableCategories = useMemo(() => {
-    const categories = new Set(unlockedBlueprints.map(item => item.category));
+    const categories = new Set(producibleItems.map(item => item.category));
     return Array.from(categories).sort((a, b) => CATEGORY_NAMES[a].localeCompare(CATEGORY_NAMES[b]));
-  }, [unlockedBlueprints]);
+  }, [producibleItems]);
 
   const filteredBlueprints = useMemo(() => {
     let items = unlockedBlueprints;
@@ -132,7 +133,7 @@ export default function FactoryView({ factory }: FactoryViewProps) {
             />
           )) : (
             <p className="text-gray-500 lg:col-span-3 text-center py-8">
-              {showOnlyProducible ? "No tienes recursos para fabricar ningún plano en esta categoría." : "No hay planos en esta categoría."}
+              {showOnlyProducible ? "No tienes recursos para fabricar ningún plano en esta categoría." : "No hay planos desbloqueados en esta categoría."}
             </p>
           )}
         </div>
@@ -140,15 +141,28 @@ export default function FactoryView({ factory }: FactoryViewProps) {
 
       {lockedBlueprints.length > 0 && (
         <section>
-          <h2 className="text-2xl font-semibold mb-4 text-gray-400">Planos Bloqueados</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-            {lockedBlueprints.map(blueprint => (
-              <div key={blueprint.id} className="bg-gray-800/60 p-3 rounded-lg text-center shadow-md border border-gray-700">
-                <p className="font-bold text-gray-300">{blueprint.name}</p>
-                <p className="text-xs text-gray-500">Req. Nivel {blueprint.requiredFactoryLevel}</p>
-              </div>
-            ))}
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-semibold text-gray-400">Planos Bloqueados</h2>
+            <label className="flex items-center gap-2 cursor-pointer text-gray-400 hover:text-white transition-colors">
+              <input 
+                type="checkbox"
+                checked={showLockedBlueprints}
+                onChange={() => setShowLockedBlueprints(!showLockedBlueprints)}
+                className="w-5 h-5 bg-gray-700 border-gray-600 rounded text-cyan-500 focus:ring-2 focus:ring-offset-0 focus:ring-offset-gray-800 focus:ring-cyan-500"
+              />
+              <span>Mostrar bloqueados</span>
+            </label>
           </div>
+          {showLockedBlueprints && (
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 animate-fade-in">
+              {lockedBlueprints.map(blueprint => (
+                <div key={blueprint.id} className="bg-gray-800/60 p-3 rounded-lg text-center shadow-md border border-gray-700">
+                  <p className="font-bold text-gray-300">{blueprint.name}</p>
+                  <p className="text-xs text-gray-500">Req. Nivel {blueprint.requiredFactoryLevel}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </section>
       )}
 
