@@ -17,15 +17,18 @@ export function LoadingProvider({ children }: { children: ReactNode }) {
   const showLoading = useCallback(() => setIsLoading(true), []);
   const hideLoading = useCallback(() => setIsLoading(false), []);
 
-  const withLoading = useCallback(async <T>(action: () => Promise<T>): Promise<T> => {
-    showLoading();
-    try {
-      const result = await action();
-      return result;
-    } finally {
-      hideLoading();
-    }
-  }, [showLoading, hideLoading]);
+  const withLoading = useCallback(
+    async <T>(action: () => Promise<T>): Promise<T> => {
+      showLoading();
+      try {
+        const result = await action();
+        return result;
+      } finally {
+        hideLoading();
+      }
+    },
+    [showLoading, hideLoading]
+  );
 
   return (
     <LoadingContext.Provider value={{ showLoading, hideLoading, withLoading }}>

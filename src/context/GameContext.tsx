@@ -1,4 +1,4 @@
-// --- START OF FILE VEconom-main/src/context/GameContext.tsx ---
+// --- START OF FILE VEconomic-main/src/context/GameContext.tsx ---
 
 import React, { createContext, useReducer, ReactNode } from 'react';
 import { useToast } from '../hooks/useToast';
@@ -94,12 +94,24 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const id = `${type}-${gameState.buildings.filter(b => b.type === type).length + 1}`;
       let newBuilding: Building;
       switch (type) {
-          case 'FABRICA': newBuilding = { id, type, level: 1, productionSlots: 2, efficiency: 100, maintenanceCost: 100, productionQueue: [] }; break;
-          case 'ALMACEN': newBuilding = { id, type, level: 1, capacity: 1000, maintenanceCost: 50 }; break;
-          case 'LABORATORIO_ID': newBuilding = { id, type, level: 1, researchSlots: 1, researchPointsPerDay: 5, maintenanceCost: 200 }; break;
-          case 'OFICINA_MARKETING': newBuilding = { id, type, level: 1, campaignSlots: 1, brandAwareness: 10, maintenanceCost: 120 }; break;
-          case 'DEPARTAMENTO_RRHH': newBuilding = { id, type, level: 1, maxEmployees: 10, trainingSpeedBonus: 0, maintenanceCost: 80 }; break;
-          case 'CENTRO_LOGISTICA': newBuilding = { id, type, level: 1, shippingCostReduction: 2, supplyChainSlots: 1, maintenanceCost: 150 }; break;
+          case 'FABRICA':
+            newBuilding = { id, type, level: 1, productionSlots: 2, efficiency: 100, maintenanceCost: 100, productionQueue: [] };
+            break;
+          case 'ALMACEN':
+            newBuilding = { id, type, level: 1, capacity: 1000, maintenanceCost: 50 };
+            break;
+          case 'LABORATORIO_ID':
+            newBuilding = { id, type, level: 1, researchSlots: 1, researchPointsPerDay: 5, maintenanceCost: 200 };
+            break;
+          case 'OFICINA_MARKETING':
+            newBuilding = { id, type, level: 1, campaignSlots: 1, brandAwareness: 10, maintenanceCost: 120 };
+            break;
+          case 'DEPARTAMENTO_RRHH':
+            newBuilding = { id, type, level: 1, maxEmployees: 10, trainingSpeedBonus: 0, maintenanceCost: 80 };
+            break;
+          case 'CENTRO_LOGISTICA':
+            newBuilding = { id, type, level: 1, shippingCostReduction: 2, supplyChainSlots: 1, maintenanceCost: 150 };
+            break;
       }
 
       dispatch({ type: GameActionType.PURCHASE_BUILDING, payload: { newBuilding, cost: buildingInfo.cost }});
