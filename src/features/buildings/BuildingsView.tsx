@@ -55,13 +55,14 @@ function OwnedBuildingCard({ building }: OwnedBuildingCardProps) {
       case 'LABORATORIO_ID': return `${(building as IResearchLab).researchPointsPerDay} RP/día`;
       case 'OFICINA_MARKETING': return `Alcance: ${(building as IMarketingOffice).brandAwareness}`;
       case 'DEPARTAMENTO_RRHH': return `Empleados: ?/${(building as IHumanResourcesDept).maxEmployees}`;
-      case 'CENTRO_LOGISTICA': return `Reducción Costes: ${(building as ILogisticsCenter).shippingCostReduction}%`;
+      case 'CENTRO_LOGISTICA': return `Espacios de camiones: ${(building as ILogisticsCenter).truckSlots}`;
       default: return '';
     }
   }
 
   const renderAction = () => {
-    if (building.type === 'FABRICA') {
+    const isManageable = building.type === 'FABRICA' || building.type === 'CENTRO_LOGISTICA';
+    if (isManageable) {
       return (
         <NavLink 
           to={`/buildings/${building.id}`}
@@ -72,7 +73,7 @@ function OwnedBuildingCard({ building }: OwnedBuildingCardProps) {
       );
     }
     return (
-      <button disabled className="mt-4 w-full bg-gray-600 text-gray-400 font-semibold py-2 rounded-md cursor-not-allowed">
+      <button className="mt-4 w-full bg-gray-600 text-gray-400 font-semibold py-2 rounded-md cursor-not-allowed">
         Mejorar
       </button>
     )

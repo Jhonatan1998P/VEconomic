@@ -2,8 +2,9 @@
 
 import { useParams, Navigate } from 'react-router-dom';
 import { useGame } from '../../hooks/useGame';
-import { IFactory } from '../../types/game.types';
+import { IFactory, ILogisticsCenter } from '../../types/game.types';
 import FactoryView from './FactoryView';
+import LogisticsCenterView from '../logistics/LogisticsCenterView';
 
 export default function BuildingDetailView() {
   const { buildingId } = useParams<{ buildingId: string }>();
@@ -27,9 +28,8 @@ export default function BuildingDetailView() {
   switch (building.type) {
     case 'FABRICA':
       return <FactoryView factory={building as IFactory} />;
-    // case 'ALMACEN':
-    //   return <WarehouseDetailView warehouse={building as IWarehouse} />;
-    // ... otros tipos de edificios
+    case 'CENTRO_LOGISTICA':
+      return <LogisticsCenterView logisticsCenter={building as ILogisticsCenter} />;
     default:
       return (
         <div className="text-center p-8">

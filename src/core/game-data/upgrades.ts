@@ -35,5 +35,13 @@ export const UPGRADE_DATA: Record<BuildingType, BuildingUpgradeData> = {
   LABORATORIO_ID: { maxLevel: 1, levels: {} },
   OFICINA_MARKETING: { maxLevel: 1, levels: {} },
   DEPARTAMENTO_RRHH: { maxLevel: 1, levels: {} },
-  CENTRO_LOGISTICA: { maxLevel: 1, levels: {} },
+  CENTRO_LOGISTICA: { 
+    maxLevel: 5,
+    levels: {
+      2: { cost: 15000, maintenanceCost: 250, truckSlots: 2, shippingCostReduction: 3 },
+      3: { cost: 35000, maintenanceCost: 400, truckSlots: 3, shippingCostReduction: 4 },
+      4: { cost: 70000, maintenanceCost: 600, truckSlots: 4, shippingCostReduction: 5 },
+      5: { cost: 150000, maintenanceCost: 900, truckSlots: 5, shippingCostReduction: 7 },
+    }
+  },
 };

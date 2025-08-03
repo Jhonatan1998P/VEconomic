@@ -1,4 +1,5 @@
 // --- START OF FILE VEconomic-main/src/types/game.types.ts ---
+
 export type BuildingType = 'FABRICA' | 'ALMACEN' | 'LABORATORIO_ID' | 'OFICINA_MARKETING' | 'DEPARTAMENTO_RRHH' | 'CENTRO_LOGISTICA';
 
 export type ItemId = string;
@@ -66,10 +67,33 @@ export interface IHumanResourcesDept extends IBuildingBase {
 export interface ILogisticsCenter extends IBuildingBase {
   type: 'CENTRO_LOGISTICA';
   shippingCostReduction: number;
-  supplyChainSlots: number;
+  truckSlots: number;
 }
 
 export type Building = IFactory | IWarehouse | IResearchLab | IMarketingOffice | IHumanResourcesDept | ILogisticsCenter;
+
+export type TruckStatus = 'IDLE' | 'DELIVERING' | 'RETURNING';
+
+export interface ITruck {
+  id: string;
+  name: string;
+  status: TruckStatus;
+  jobId: string | null;
+  timeRemaining: number;
+}
+
+export type ContractType = 'SELL' | 'BUY';
+export type ContractStatus = 'PENDING' | 'ACTIVE' | 'COMPLETED';
+
+export interface IContract {
+  id: string;
+  type: ContractType;
+  status: ContractStatus;
+  itemId: ItemId;
+  quantity: number;
+  reward: number; // Positive for SELL, negative for BUY
+  travelTime: number; // Time for one-way trip
+}
 
 export interface IGameState {
   playerName: string;
@@ -79,4 +103,7 @@ export interface IGameState {
   inventory: Record<ItemId, number>;
   buildings: Building[];
   events: string[];
+  trucks: ITruck[];
+  contracts: IContract[];
+  nextContractDate: Date;
 }

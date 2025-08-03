@@ -6,25 +6,28 @@ import { GameAction, GameActionType } from "./gameActionTypes";
 export function gameReducer(state: IGameState, action: GameAction): IGameState {
   switch (action.type) {
     case GameActionType.ADVANCE_DAY: {
-      const { newInventory, updatedBuildings, netIncome, newEvents } = action.payload;
+      const { updatedBuildings, updatedTrucks, updatedContracts, newInventory, moneyChange, newEvents, nextContractDate } = action.payload;
       return {
         ...state,
-        money: state.money + netIncome,
+        money: state.money + moneyChange,
         date: new Date(state.date.getTime() + 86400000),
         buildings: updatedBuildings,
         inventory: newInventory,
-        events: [...newEvents, ...state.events].slice(0, 10),
+        trucks: updatedTrucks,
+        contracts: updatedContracts,
+        events: [...newEvents, ...state.events].slice(0, 20),
+        nextContractDate: nextContractDate,
       };
     }
 
     case GameActionType.PURCHASE_BUILDING: {
-      const { newBuilding, cost } = action.payload;
+      const { newBuilding, cost, event } = action.payload;
       return {
         ...state,
         money: state.money - cost,
         companyValue: state.companyValue + cost,
         buildings: [...state.buildings, newBuilding],
-        events: [`¡Construido: ${newBuilding.type}!`, ...state.events].slice(0, 10),
+        events: [event, ...state.events].slice(0, 20),
       };
     }
 
@@ -36,7 +39,7 @@ export function gameReducer(state: IGameState, action: GameAction): IGameState {
         buildings: state.buildings.map(b =>
           b.id === factoryId ? { ...b, productionQueue: [...(b as any).productionQueue, newQueueItem] } : b
         ),
-        events: [event, ...state.events].slice(0, 10),
+        events: [event, ...state.events].slice(0, 20),
       };
     }
 
@@ -49,7 +52,45 @@ export function gameReducer(state: IGameState, action: GameAction): IGameState {
         buildings: state.buildings.map(b =>
           b.id === buildingId ? { ...b, ...newStats, level: nextLevel } : b
         ),
-        events: [event, ...state.events].slice(0, 10),
+        events: [event, ...state.events].slice(0, 20),
+      };
+    }
+
+    case GameActionType.SELL_ITEM: {
+      const { itemId, quantity, moneyGained, event } = action.payload;
+      const newInventory = { ...state.inventory };
+      newInventory[itemId] -= quantity;
+      if (newInventory[itemId] <= 0) {
+        delete newInventory[itemId];
+      }
+      return {
+        ...state,
+        money: state.money + moneyGained,
+        inventory: newInventory,
+        events: [event, ...state.events].slice(0, 20),
+      };
+    }
+
+    case GameActionType.ACCEPT_CONTRACT: {
+      const { contractId, truckId, newInventory, cost, event } = action.payload;
+      return {
+        ...state,
+        money: state.money - cost,
+        inventory: newInventory,
+        trucks: state.trucks.map(t => t.id === truckId ? { ...t, status: 'DELIVERING', jobId: contractId, timeRemaining: state.contracts.find(c=>c.id === contractId)!.travelTime } : t),
+        contracts: state.contracts.map(c => c.id === contractId ? { ...c, status: 'ACTIVE' } : c),
+        events: [event, ...state.events].slice(0, 20),
+      };
+    }
+
+    case GameActionType.PURCHASE_TRUCK: {
+      const { newTruck, cost, event } = action.payload;
+      return {
+        ...state,
+        money: state.money - cost,
+        companyValue: state.companyValue + cost,
+        trucks: [...state.trucks, newTruck],
+        events: [event, ...state.events].slice(0, 20),
       };
     }
 
