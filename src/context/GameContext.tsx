@@ -96,9 +96,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
 
     setGameState(prevState => {
-      let newBuilding: Building;
       const existingBuildings = prevState.buildings.filter(b => b.type === type);
       const id = `${type}-${existingBuildings.length + 1}`;
+      let newBuilding: Building;
 
       switch (type) {
         case 'FABRICA':
@@ -120,6 +120,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
           newBuilding = { id, type: 'CENTRO_LOGISTICA', level: 1, shippingCostReduction: 2, supplyChainSlots: 1, maintenanceCost: 150 } as ILogisticsCenter;
           break;
         default:
+          const _exhaustiveCheck: never = type;
           return prevState;
       }
 
