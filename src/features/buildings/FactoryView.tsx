@@ -3,6 +3,7 @@
 import React, { useState, useMemo } from 'react';
 import { useGame } from '../../hooks/useGame';
 import { ITEM_DATABASE } from '../../core/game-data/items';
+import { BUILDING_DATA } from '../../context/GameContext';
 import { IFactory, ItemDefinition, ItemId, ProductionQueueItem, RecipeItem, ItemCategory } from '../../types/game.types';
 import Icon from '../../icons/Icon';
 import { NavLink } from 'react-router-dom';
@@ -22,6 +23,7 @@ export default function FactoryView({ factory }: FactoryViewProps) {
   const { gameState, startProduction } = useGame();
   const [selectedCategory, setSelectedCategory] = useState<ItemCategory | null>(null);
   const [showOnlyProducible, setShowOnlyProducible] = useState(true);
+  const factoryInfo = BUILDING_DATA[factory.type];
 
   const producibleItems = useMemo(() =>
     Object.entries(ITEM_DATABASE)
@@ -48,17 +50,14 @@ export default function FactoryView({ factory }: FactoryViewProps) {
 
   const filteredBlueprints = useMemo(() => {
     let items = unlockedBlueprints;
-
     if (selectedCategory) {
       items = items.filter(item => item.category === selectedCategory);
     }
-
     if (showOnlyProducible) {
       items = items.filter(blueprint => 
         blueprint.recipe?.every(ing => (gameState.inventory[ing.id] || 0) >= ing.amount) ?? false
       );
     }
-
     return items;
   }, [unlockedBlueprints, selectedCategory, showOnlyProducible, gameState.inventory]);
 
@@ -70,7 +69,7 @@ export default function FactoryView({ factory }: FactoryViewProps) {
           <Icon name="factory" className="w-12 h-12 text-cyan-300" />
           <div>
             <h1 className="text-3xl md:text-4xl font-bold text-gray-100">
-              Gestión de Fábrica: <span className="text-cyan-300">{factory.id}</span>
+              Gestión de <span className="text-cyan-300">{factoryInfo.name}</span>
             </h1>
             <p className="text-gray-400">Nivel {factory.level} • Eficiencia: {factory.efficiency}% • Espacios de Producción: {factory.productionQueue.length}/{factory.productionSlots}</p>
           </div>
@@ -176,11 +175,16 @@ function ProductionQueueCard({ item }: { item: ProductionQueueItem }) {
 }
 
 function BlueprintCard({ blueprint, factory, playerInventory, onProduce }: { blueprint: ItemDefinition & {id: ItemId}, factory: IFactory, playerInventory: Record<ItemId, number>, onProduce: (itemId: ItemId, quantity: number) => void }) {
-  const [quantity, setQuantity] = useState(1);
+  const [quantity, setQuantity] = useState<number | string>(1);
+
+  const numQuantity = useMemo(() => {
+    const n = Number(quantity);
+    return isNaN(n) ? 0 : n;
+  }, [quantity]);
 
   const totalCost = useMemo(() => {
-    return blueprint.recipe?.map(ing => ({...ing, total: ing.amount * quantity})) || [];
-  }, [quantity, blueprint.recipe]);
+    return blueprint.recipe?.map(ing => ({...ing, total: ing.amount * numQuantity})) || [];
+  }, [numQuantity, blueprint.recipe]);
 
   const canAfford = useMemo(() => 
     totalCost.every(ing => (playerInventory[ing.id] || 0) >= ing.total),
@@ -189,9 +193,16 @@ function BlueprintCard({ blueprint, factory, playerInventory, onProduce }: { blu
 
   const isQueueFull = factory.productionQueue.length >= factory.productionSlots;
 
+  const handleQuantityChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (value === '' || /^[0-9]+$/.test(value)) {
+      setQuantity(value === '' ? '' : parseInt(value, 10));
+    }
+  }
+
   const handleProduce = () => {
-    if (canAfford && !isQueueFull && quantity > 0) {
-      onProduce(blueprint.id, quantity);
+    if (canAfford && !isQueueFull && numQuantity > 0) {
+      onProduce(blueprint.id, numQuantity);
       setQuantity(1);
     }
   }
@@ -220,12 +231,12 @@ function BlueprintCard({ blueprint, factory, playerInventory, onProduce }: { blu
             type="number"
             min="1"
             value={quantity}
-            onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+            onChange={handleQuantityChange}
             className="w-full bg-gray-700 text-white p-2 rounded-md border border-gray-600 focus:ring-2 focus:ring-cyan-500 focus:outline-none"
           />
           <button 
             onClick={handleProduce}
-            disabled={!canAfford || isQueueFull || quantity <= 0}
+            disabled={!canAfford || isQueueFull || numQuantity <= 0}
             className={`px-6 py-2 rounded-md font-semibold text-white transition-colors w-full
               ${isQueueFull ? 'bg-yellow-600/50 cursor-not-allowed' : ''}
               ${!canAfford && !isQueueFull ? 'bg-red-600/50 cursor-not-allowed' : ''}

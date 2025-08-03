@@ -32,68 +32,73 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const { addToast } = useToast();
 
   const advanceDay = () => {
-    setGameState(prevState => {
-      let newEvents: string[] = [];
-      const newInventory = { ...prevState.inventory };
+    const prevState = gameState;
+    const toastsToShow: { message: string, type: 'success' | 'error' }[] = [];
 
-      const updatedBuildings = prevState.buildings.map(building => {
-        if (building.type === 'FABRICA') {
-          const factory = building as IFactory;
-          const remainingQueue: ProductionQueueItem[] = [];
+    const dailyCosts = 150 + prevState.buildings.reduce((sum, b) => sum + b.maintenanceCost, 0);
+    if (prevState.money < dailyCosts) {
+      addToast("¡Fondos insuficientes para cubrir los costos diarios!", 'error');
+      return;
+    }
 
-          factory.productionQueue.forEach(item => {
-            const timeReduction = factory.efficiency / 100;
-            const effectiveTimeRemaining = item.timeRemaining - (1 * timeReduction);
+    let newEvents: string[] = [];
+    const newInventory = { ...prevState.inventory };
 
-            if (effectiveTimeRemaining <= 0) {
-              const itemInfo = ITEM_DATABASE[item.itemId];
-              newInventory[item.itemId] = (newInventory[item.itemId] || 0) + item.quantity;
-              const eventMsg = `¡Producción de ${item.quantity}x ${itemInfo.name} completada en ${factory.id}!`;
-              newEvents.push(eventMsg);
-              addToast(eventMsg, 'success');
-            } else {
-              remainingQueue.push({ ...item, timeRemaining: effectiveTimeRemaining });
-            }
-          });
-          return { ...factory, productionQueue: remainingQueue };
-        }
-        return building;
-      });
+    const updatedBuildings = prevState.buildings.map(building => {
+      if (building.type === 'FABRICA') {
+        const factory = building as IFactory;
+        const factoryInfo = BUILDING_DATA[factory.type];
+        const remainingQueue: ProductionQueueItem[] = [];
 
-      const dailyIncome = 500;
-      const totalMaintenanceCost = updatedBuildings.reduce((sum, building) => sum + building.maintenanceCost, 0);
-      const dailyCosts = 150 + totalMaintenanceCost;
-      const netIncome = dailyIncome - dailyCosts;
+        factory.productionQueue.forEach(item => {
+          const timeReduction = factory.efficiency / 100;
+          const effectiveTimeRemaining = item.timeRemaining - (1 * timeReduction);
 
-      if (prevState.money < dailyCosts) {
-        addToast("¡Fondos insuficientes para cubrir los costos diarios!", 'error');
-        return prevState;
+          if (effectiveTimeRemaining <= 0) {
+            const itemInfo = ITEM_DATABASE[item.itemId];
+            newInventory[item.itemId] = (newInventory[item.itemId] || 0) + item.quantity;
+            const eventMsg = `Producción de ${item.quantity}x ${itemInfo.name} completada en la ${factoryInfo.name}.`;
+            newEvents.push(eventMsg);
+            toastsToShow.push({ message: eventMsg, type: 'success' });
+          } else {
+            remainingQueue.push({ ...item, timeRemaining: effectiveTimeRemaining });
+          }
+        });
+        return { ...factory, productionQueue: remainingQueue };
       }
-
-      const nextDay = new Date(prevState.date.getTime() + 86400000);
-      newEvents.push(`Día avanzado. Ingresos: $${dailyIncome.toLocaleString()}, Costos: $${dailyCosts.toLocaleString()}`);
-
-      return {
-        ...prevState,
-        money: prevState.money + netIncome,
-        date: nextDay,
-        buildings: updatedBuildings,
-        inventory: newInventory,
-        events: [...newEvents, ...prevState.events].slice(0, 10)
-      };
+      return building;
     });
+
+    const dailyIncome = 500;
+    const totalMaintenanceCost = updatedBuildings.reduce((sum, building) => sum + building.maintenanceCost, 0);
+    const finalDailyCosts = 150 + totalMaintenanceCost;
+    const netIncome = dailyIncome - finalDailyCosts;
+    const nextDay = new Date(prevState.date.getTime() + 86400000);
+    newEvents.push(`Día avanzado. Ingresos: $${dailyIncome.toLocaleString()}, Costos: $${finalDailyCosts.toLocaleString()}`);
+
+    setGameState({
+      ...prevState,
+      money: prevState.money + netIncome,
+      date: nextDay,
+      buildings: updatedBuildings,
+      inventory: newInventory,
+      events: [...newEvents, ...prevState.events].slice(0, 10)
+    });
+
+    toastsToShow.forEach(toast => addToast(toast.message, toast.type));
   };
 
   const purchaseBuilding = (type: BuildingType) => {
     const buildingInfo = BUILDING_DATA[type];
-    setGameState(prevState => {
-      if (prevState.money < buildingInfo.cost) {
-        addToast("¡No tienes suficiente dinero!", 'error');
-        return prevState;
-      }
+    if (gameState.money < buildingInfo.cost) {
+      addToast("¡No tienes suficiente dinero!", 'error');
+      return;
+    }
 
+    setGameState(prevState => {
       let newBuilding: Building;
-      const id = `${type}-${prevState.buildings.filter(b => b.type === type).length + 1}`;
+      const existingBuildings = prevState.buildings.filter(b => b.type === type);
+      const id = `${type}-${existingBuildings.length + 1}`;
 
       switch (type) {
         case 'FABRICA':
@@ -130,48 +135,51 @@ export function GameProvider({ children }: { children: ReactNode }) {
   };
 
   const startProduction = (factoryId: string, itemId: ItemId, quantity: number) => {
+    let toastToShow: { message: string, type: 'success' | 'error' } | null = null;
+
     setGameState(prevState => {
       const factory = prevState.buildings.find(b => b.id === factoryId) as IFactory | undefined;
       const itemInfo = ITEM_DATABASE[itemId];
 
       if (!factory || !itemInfo || !itemInfo.recipe || !itemInfo.productionTime) return prevState;
 
+      const factoryInfo = BUILDING_DATA[factory.type];
+
       if (factory.productionQueue.length >= factory.productionSlots) {
-        addToast("No hay espacios de producción disponibles en esta fábrica.", 'error');
+        toastToShow = { message: "No hay espacios de producción disponibles.", type: 'error' };
         return prevState;
       }
       if (factory.level < (itemInfo.requiredFactoryLevel || 1)) {
-        addToast(`Se requiere una fábrica de nivel ${itemInfo.requiredFactoryLevel} para producir ${itemInfo.name}.`, 'error');
+        toastToShow = { message: `Se requiere Nivel ${itemInfo.requiredFactoryLevel} para producir ${itemInfo.name}.`, type: 'error' };
         return prevState;
       }
 
       const newInventory = { ...prevState.inventory };
       for (const ingredient of itemInfo.recipe) {
         if ((newInventory[ingredient.id] || 0) < ingredient.amount * quantity) {
-          addToast(`Recursos insuficientes para ${itemInfo.name}.`, 'error');
+          toastToShow = { message: `Recursos insuficientes para ${itemInfo.name}.`, type: 'error' };
           return prevState;
         }
         newInventory[ingredient.id] -= ingredient.amount * quantity;
       }
 
-      const newQueueItem: ProductionQueueItem = {
-        itemId,
-        quantity,
-        timeRemaining: itemInfo.productionTime * quantity,
-      };
-
+      const newQueueItem: ProductionQueueItem = { itemId, quantity, timeRemaining: itemInfo.productionTime * quantity };
       const updatedBuildings = prevState.buildings.map(b => 
         b.id === factoryId ? { ...b, productionQueue: [...(b as IFactory).productionQueue, newQueueItem] } : b
       );
 
-      addToast(`Iniciada la producción de ${quantity}x ${itemInfo.name}.`, 'success');
+      toastToShow = { message: `Iniciada la producción de ${quantity}x ${itemInfo.name}.`, type: 'success' };
       return {
         ...prevState,
         inventory: newInventory,
         buildings: updatedBuildings,
-        events: [`Iniciada la producción de ${quantity}x ${itemInfo.name} en ${factory.id}.`, ...prevState.events].slice(0, 10),
+        events: [`Iniciada la producción de ${quantity}x ${itemInfo.name} en la ${factoryInfo.name}.`, ...prevState.events].slice(0, 10),
       };
     });
+
+    if (toastToShow) {
+      addToast(toastToShow.message, toastToShow.type);
+    }
   };
 
   const value = { gameState, advanceDay, purchaseBuilding, startProduction };

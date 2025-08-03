@@ -51,7 +51,7 @@ const TOAST_STYLES: Record<ToastType, { bg: string, border: string, text: string
 
 function ToastContainer({ toasts, onDismiss }: { toasts: Toast[], onDismiss: (id: number) => void }) {
   return (
-    <div className="fixed top-5 right-5 z-50 w-full max-w-sm space-y-3">
+    <div className="fixed top-5 inset-x-4 md:inset-x-auto md:w-full md:max-w-sm md:right-5 z-50 space-y-3">
       {toasts.map(toast => {
         const styles = TOAST_STYLES[toast.type];
         return (

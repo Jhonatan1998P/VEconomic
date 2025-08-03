@@ -83,7 +83,7 @@ function OwnedBuildingCard({ building }: OwnedBuildingCardProps) {
       <div className="flex items-start gap-4">
         <Icon name={info.icon as IconName} className="w-10 h-10 text-cyan-400 flex-shrink-0 mt-1" />
         <div>
-          <h3 className="text-xl font-bold text-white">{info.name} (ID: {building.id})</h3>
+          <h3 className="text-xl font-bold text-white">{info.name}</h3>
           <p className="text-sm text-gray-400">Nivel {building.level}</p>
         </div>
       </div>
