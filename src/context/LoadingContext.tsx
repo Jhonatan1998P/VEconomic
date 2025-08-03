@@ -18,7 +18,7 @@ export function LoadingProvider({ children }: { children: ReactNode }) {
   const hideLoading = useCallback(() => setIsLoading(false), []);
 
   const withLoading = useCallback(
-    async <T>(action: () => Promise<T>): Promise<T> => {
+    async function <T>(action: () => Promise<T>): Promise<T> {
       showLoading();
       try {
         const result = await action();
