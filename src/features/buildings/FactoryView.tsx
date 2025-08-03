@@ -4,6 +4,7 @@ import React, { useState, useMemo } from 'react';
 import { useGame } from '../../hooks/useGame';
 import { ITEM_DATABASE } from '../../core/game-data/items';
 import { BUILDING_DATA } from '../../context/GameContext';
+import { UPGRADE_DATA } from '../../core/game-data/upgrades';
 import { IFactory, ItemDefinition, ItemId, ProductionQueueItem, RecipeItem, ItemCategory } from '../../types/game.types';
 import Icon from '../../icons/Icon';
 import { NavLink } from 'react-router-dom';
@@ -20,7 +21,7 @@ const CATEGORY_NAMES: Record<ItemCategory, string> = {
 };
 
 export default function FactoryView({ factory }: FactoryViewProps) {
-  const { gameState, startProduction } = useGame();
+  const { gameState, startProduction, upgradeBuilding } = useGame();
   const [selectedCategory, setSelectedCategory] = useState<ItemCategory | null>(null);
   const [showOnlyProducible, setShowOnlyProducible] = useState(true);
   const factoryInfo = BUILDING_DATA[factory.type];
@@ -75,6 +76,8 @@ export default function FactoryView({ factory }: FactoryViewProps) {
           </div>
         </div>
       </header>
+
+      <UpgradePanel factory={factory} money={gameState.money} onUpgrade={upgradeBuilding} />
 
       <section>
         <h2 className="text-2xl font-semibold mb-4 text-gray-200">Cola de Producción</h2>
@@ -150,6 +153,56 @@ export default function FactoryView({ factory }: FactoryViewProps) {
       )}
 
     </div>
+  );
+}
+
+function UpgradePanel({ factory, money, onUpgrade }: { factory: IFactory, money: number, onUpgrade: (id: string) => void }) {
+  const upgradeInfo = UPGRADE_DATA[factory.type];
+  const nextLevel = factory.level + 1;
+  const nextLevelInfo = upgradeInfo.levels[nextLevel];
+
+  if (!nextLevelInfo) {
+    return (
+      <section className="bg-gray-800/50 p-4 rounded-lg shadow-inner text-center">
+        <h2 className="text-xl font-semibold text-green-400">Mejora Máxima Alcanzada</h2>
+        <p className="text-gray-400">Esta fábrica ya está a su máximo potencial.</p>
+      </section>
+    );
+  }
+
+  const canAfford = money >= nextLevelInfo.cost;
+
+  return (
+    <section>
+      <h2 className="text-2xl font-semibold mb-4 text-gray-200">Mejorar Edificio</h2>
+      <div className="bg-gray-800/50 p-6 rounded-lg shadow-inner grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+        <div className="text-center md:text-left">
+          <p className="text-gray-400">Nivel Actual</p>
+          <p className="text-3xl font-bold text-white">{factory.level}</p>
+          <p className="text-sm text-gray-300">Eficiencia: {factory.efficiency}%</p>
+          <p className="text-sm text-gray-300">Espacios: {factory.productionSlots}</p>
+        </div>
+        <div className="flex flex-col items-center justify-center">
+          <Icon name="chevron-down" className="w-10 h-10 text-cyan-400 rotate-[-90deg] md:hidden"/>
+          <Icon name="chevron-down" className="w-10 h-10 text-cyan-400 md:rotate-0 hidden md:block mb-2"/>
+          <button 
+            onClick={() => onUpgrade(factory.id)}
+            disabled={!canAfford}
+            className={`w-full font-semibold py-3 px-6 rounded-md transition-colors text-white ${
+              canAfford ? 'bg-green-600 hover:bg-green-500' : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+            }`}
+          >
+            Mejorar por ${nextLevelInfo.cost.toLocaleString()}
+          </button>
+        </div>
+        <div className="text-center md:text-right">
+          <p className="text-cyan-400">Próximo Nivel</p>
+          <p className="text-3xl font-bold text-cyan-300">{nextLevel}</p>
+          <p className="text-sm text-cyan-300">Eficiencia: {nextLevelInfo.efficiency}%</p>
+          <p className="text-sm text-cyan-300">Espacios: {nextLevelInfo.productionSlots}</p>
+        </div>
+      </div>
+    </section>
   );
 }
 

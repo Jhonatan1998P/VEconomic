@@ -1,11 +1,15 @@
-import { useState } from 'react';
-import { Outlet, NavLink } from 'react-router-dom';
+// --- START OF FILE VEconomic-main/src/app/App.tsx ---
+
+import { useState, useEffect } from 'react';
+import { Outlet, NavLink, useNavigation } from 'react-router-dom';
 import { useGame } from '../hooks/useGame';
 import Icon from '../icons/Icon';
 
 export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const { gameState } = useGame();
+  const navigation = useNavigation();
+  const isNavigating = navigation.state === 'loading';
 
   const formatMoney = (amount: number) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(amount);
   const day = Math.floor((gameState.date.getTime() - new Date(2025, 0, 1).getTime()) / (1000 * 60 * 60 * 24)) + 1;
@@ -66,7 +70,7 @@ export default function App() {
           </div>
         </header>
 
-        <main className="flex-grow p-4 sm:p-6 overflow-y-auto">
+        <main className={`flex-grow p-4 sm:p-6 overflow-y-auto transition-opacity duration-300 ${isNavigating ? 'opacity-25' : 'opacity-100'}`}>
           <Outlet />
         </main>
       </div>
