@@ -119,12 +119,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
         case 'CENTRO_LOGISTICA':
           newBuilding = { id, type: 'CENTRO_LOGISTICA', level: 1, shippingCostReduction: 2, supplyChainSlots: 1, maintenanceCost: 150 } as ILogisticsCenter;
           break;
-        default:
-          const _exhaustiveCheck: never = type;
-          return prevState;
       }
 
-      addToast(`¡${buildingInfo.name} construido exitosamente!`, 'success');
       return {
         ...prevState,
         money: prevState.money - buildingInfo.cost,
@@ -133,43 +129,44 @@ export function GameProvider({ children }: { children: ReactNode }) {
         events: [`¡Construido: ${buildingInfo.name}!`, ...prevState.events].slice(0, 10),
       };
     });
+
+    addToast(`¡${buildingInfo.name} construido exitosamente!`, 'success');
   };
 
   const startProduction = (factoryId: string, itemId: ItemId, quantity: number) => {
-    let toastToShow: { message: string, type: 'success' | 'error' } | null = null;
+    const factory = gameState.buildings.find(b => b.id === factoryId) as IFactory | undefined;
+    const itemInfo = ITEM_DATABASE[itemId];
+
+    if (!factory || !itemInfo || !itemInfo.recipe || !itemInfo.productionTime) return;
+
+    if (factory.productionQueue.length >= factory.productionSlots) {
+      addToast("No hay espacios de producción disponibles.", 'error');
+      return;
+    }
+    if (factory.level < (itemInfo.requiredFactoryLevel || 1)) {
+      addToast(`Se requiere Nivel ${itemInfo.requiredFactoryLevel} para producir ${itemInfo.name}.`, 'error');
+      return;
+    }
+
+    for (const ingredient of itemInfo.recipe) {
+      if ((gameState.inventory[ingredient.id] || 0) < ingredient.amount * quantity) {
+        addToast(`Recursos insuficientes para ${itemInfo.name}.`, 'error');
+        return;
+      }
+    }
 
     setGameState(prevState => {
-      const factory = prevState.buildings.find(b => b.id === factoryId) as IFactory | undefined;
-      const itemInfo = ITEM_DATABASE[itemId];
-
-      if (!factory || !itemInfo || !itemInfo.recipe || !itemInfo.productionTime) return prevState;
-
-      const factoryInfo = BUILDING_DATA[factory.type];
-
-      if (factory.productionQueue.length >= factory.productionSlots) {
-        toastToShow = { message: "No hay espacios de producción disponibles.", type: 'error' };
-        return prevState;
-      }
-      if (factory.level < (itemInfo.requiredFactoryLevel || 1)) {
-        toastToShow = { message: `Se requiere Nivel ${itemInfo.requiredFactoryLevel} para producir ${itemInfo.name}.`, type: 'error' };
-        return prevState;
-      }
-
       const newInventory = { ...prevState.inventory };
-      for (const ingredient of itemInfo.recipe) {
-        if ((newInventory[ingredient.id] || 0) < ingredient.amount * quantity) {
-          toastToShow = { message: `Recursos insuficientes para ${itemInfo.name}.`, type: 'error' };
-          return prevState;
-        }
+      itemInfo.recipe!.forEach(ingredient => {
         newInventory[ingredient.id] -= ingredient.amount * quantity;
-      }
+      });
 
       const newQueueItem: ProductionQueueItem = { itemId, quantity, timeRemaining: itemInfo.productionTime * quantity };
       const updatedBuildings = prevState.buildings.map(b => 
         b.id === factoryId ? { ...b, productionQueue: [...(b as IFactory).productionQueue, newQueueItem] } : b
       );
 
-      toastToShow = { message: `Iniciada la producción de ${quantity}x ${itemInfo.name}.`, type: 'success' };
+      const factoryInfo = BUILDING_DATA[factory.type];
       return {
         ...prevState,
         inventory: newInventory,
@@ -178,9 +175,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       };
     });
 
-    if (toastToShow) {
-      addToast(toastToShow.message, toastToShow.type);
-    }
+    addToast(`Iniciada la producción de ${quantity}x ${itemInfo.name}.`, 'success');
   };
 
   const value = { gameState, advanceDay, purchaseBuilding, startProduction };
