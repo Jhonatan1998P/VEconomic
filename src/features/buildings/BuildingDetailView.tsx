@@ -30,6 +30,13 @@ export default function BuildingDetailView() {
       return <FactoryView factory={building as IFactory} />;
     case 'CENTRO_LOGISTICA':
       return <LogisticsCenterView logisticsCenter={building as ILogisticsCenter} />;
+    case 'DEPARTAMENTO_RRHH':
+        return (
+            <div className="text-center p-8">
+              <h2 className="text-2xl font-bold text-cyan-400">Departamento de RR.HH.</h2>
+              <p className="text-gray-400">Toda la gestión de personal se realiza en la página principal de RR.HH., accesible desde el menú de navegación.</p>
+            </div>
+        );
     default:
       return (
         <div className="text-center p-8">

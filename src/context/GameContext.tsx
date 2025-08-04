@@ -3,13 +3,15 @@
 import React, { createContext, useReducer, ReactNode } from 'react';
 import { useToast } from '../hooks/useToast';
 import { useLoading } from '../hooks/useLoading';
-import { IGameState, Building, BuildingType, IFactory, ItemId, ProductionQueueItem, IContract, ITruck, ContractType, ILogisticsCenter } from '../types/game.types';
+import { IGameState, Building, BuildingType, IFactory, ItemId, ProductionQueueItem, IContract, ITruck, ContractType, ILogisticsCenter, ICandidate, IHumanResourcesDept, EmployeeSpecialty } from '../types/game.types';
 import { INITIAL_GAME_STATE } from '../core/initialState';
 import { ITEM_DATABASE } from '../core/game-data/items';
 import { UPGRADE_DATA } from '../core/game-data/upgrades';
 import { gameReducer } from './gameReducer';
 import { GameActionType } from './gameActionTypes';
 import { nanoid } from 'nanoid';
+import { SPECIALTY_DATA } from '../core/game-data/hr';
+import { generateRandomName } from '../core/game-data/names';
 
 export const BUILDING_DATA = {
   FABRICA: { name: 'Fábrica', cost: 5000, icon: 'factory' },
@@ -31,6 +33,10 @@ interface IGameContextType {
   sellItem: (itemId: ItemId, quantity: number) => Promise<void>;
   acceptContract: (contractId: string) => Promise<void>;
   purchaseTruck: () => Promise<void>;
+  hireEmployee: (candidateId: string) => Promise<void>;
+  fireEmployee: (employeeId: string) => Promise<void>;
+  assignEmployee: (employeeId: string, buildingId: string) => Promise<void>;
+  unassignEmployee: (employeeId: string) => Promise<void>;
 }
 
 export const GameContext = createContext<IGameContextType>({} as IGameContextType);
@@ -45,6 +51,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const allNewEvents: string[] = [];
       const toastsToShow: { message: string, type: 'success' | 'error' }[] = [];
       let tempInventory = { ...gameState.inventory };
+      let finalNextContractDate = gameState.nextContractDate;
 
       const dailyCosts = 150 + gameState.buildings.reduce((sum, b) => sum + b.maintenanceCost, 0);
       if (gameState.money < dailyCosts) {
@@ -56,13 +63,23 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const updatedBuildings = gameState.buildings.map(b => {
         if (b.type === 'FABRICA') {
           const factory = b as IFactory;
+          let finalEfficiency = factory.efficiency;
+
+          if (factory.managerId) {
+            const manager = gameState.employees.find(e => e.id === factory.managerId);
+            if (manager) {
+              const efficiencyBonus = manager.skillLevel / 2;
+              finalEfficiency += efficiencyBonus;
+            }
+          }
+
           const remainingQueue: ProductionQueueItem[] = [];
           factory.productionQueue.forEach(item => {
-            const effectiveTimeRemaining = item.timeRemaining - (1 * (factory.efficiency / 100));
+            const effectiveTimeRemaining = item.timeRemaining - (1 * (finalEfficiency / 100));
             if (effectiveTimeRemaining <= 0) {
               const itemInfo = ITEM_DATABASE[item.itemId];
               tempInventory[item.itemId] = (tempInventory[item.itemId] || 0) + item.quantity;
-              allNewEvents.push(`Producción de ${item.quantity}x ${itemInfo.name} completada.`);
+              allNewEvents.push(`Producción de ${item.quantity}x ${itemInfo.name} completada en ${factory.id}.`);
             } else {
               remainingQueue.push({ ...item, timeRemaining: effectiveTimeRemaining });
             }
@@ -102,47 +119,68 @@ export function GameProvider({ children }: { children: ReactNode }) {
           return completingTruck ? { ...c, status: 'COMPLETED' as const } : c;
       }).filter(c => c.status !== 'COMPLETED');
 
-      let nextContractDate = gameState.nextContractDate;
-      const logisticsCenter = gameState.buildings.find(b => b.type === 'CENTRO_LOGISTICA') as ILogisticsCenter | undefined;
+      if (gameState.date >= gameState.nextCandidateRefreshDate) {
+        const hrBuildings = gameState.buildings.filter(b => b.type === 'DEPARTAMENTO_RRHH') as IHumanResourcesDept[];
+        if (hrBuildings.length > 0) {
+          const totalRecruitmentLevel = hrBuildings.reduce((sum, b) => sum + b.recruitmentLevel, 0);
+          const maxRecruitmentLevel = Math.max(...hrBuildings.map(b => b.recruitmentLevel));
 
+          const newCandidates: ICandidate[] = [];
+          const specialties = Object.keys(SPECIALTY_DATA) as EmployeeSpecialty[];
+
+          for (let i = 0; i < totalRecruitmentLevel; i++) {
+            const baseSkill = (maxRecruitmentLevel * 5) + (Math.log10(gameState.companyValue + 1) * 2);
+            const skillVariance = (Math.random() - 0.4) * 20;
+            const skillLevel = Math.max(1, Math.min(100, Math.round(baseSkill + skillVariance)));
+
+            const salary = Math.round(50 + (skillLevel * 2) + (Math.sqrt(gameState.companyValue) / 10));
+            const hiringFee = salary * (5 + Math.round(skillLevel / 10));
+            const specialty = specialties[Math.floor(Math.random() * specialties.length)];
+
+            newCandidates.push({
+              id: nanoid(),
+              name: generateRandomName(),
+              age: Math.floor(Math.random() * 30) + 22,
+              sex: Math.random() < 0.5 ? 'M' : 'F',
+              specialty,
+              skillLevel,
+              salary,
+              hiringFee,
+              status: 'UNASSIGNED',
+              assignedBuildingId: null,
+            });
+          }
+          const nextDate = new Date(gameState.date.getTime() + 3 * 86400000);
+          const event = "Nuevos candidatos han llegado al mercado laboral.";
+          dispatch({ type: GameActionType.REFRESH_CANDIDATES, payload: { newCandidates, nextDate, event } });
+        }
+      }
+
+      const logisticsCenter = gameState.buildings.find(b => b.type === 'CENTRO_LOGISTICA') as ILogisticsCenter | undefined;
       if (logisticsCenter && gameState.date >= gameState.nextContractDate) {
         allNewEvents.push("Nuevos informes de mercado han llegado al Centro de Logística.");
         const maxContracts = logisticsCenter.level;
-
         const factories = gameState.buildings.filter(b => b.type === 'FABRICA') as IFactory[];
         const maxFactoryLevel = factories.length > 0 ? Math.max(...factories.map(f => f.level)) : 0;
-
         const sellableItems = Object.entries(ITEM_DATABASE).filter(([,item]) => item.recipe && (item.requiredFactoryLevel || 1) <= maxFactoryLevel);
         const buyableItems = Object.entries(ITEM_DATABASE).filter(([,item]) => !item.recipe);
-
         while(updatedContracts.filter(c => c.status === 'PENDING').length < maxContracts) {
-          const contractType: ContractType = Math.random() < 0.3 ? 'BUY' : 'SELL';
-
-          if (contractType === 'SELL' && sellableItems.length === 0) continue;
-          if (contractType === 'BUY' && buyableItems.length === 0) continue;
-
-          const [itemId, itemData] = contractType === 'SELL'
-            ? sellableItems[Math.floor(Math.random() * sellableItems.length)]
-            : buyableItems[Math.floor(Math.random() * buyableItems.length)];
-
-          const maxContractValue = gameState.companyValue * 0.1;
-          const targetValue = Math.random() * maxContractValue;
-
-          const itemPrice = contractType === 'SELL' ? itemData.baseSellPrice : itemData.baseCost;
-          const quantity = Math.max(1, Math.floor(targetValue / itemPrice));
-
-          const travelTime = Math.floor(Math.random() * 3) + 1;
-          const profitMargin = 1 + (Math.random() * 0.15 + 0.05);
-          const costPremium = 1 + (Math.random() * 0.10 + 0.05);
-
-          const reward = contractType === 'SELL'
-            ? Math.floor(quantity * itemData.baseSellPrice * profitMargin)
-            : -Math.floor(quantity * itemData.baseCost * costPremium);
-
-          updatedContracts.push({ id: nanoid(), type: contractType, status: 'PENDING', itemId, quantity, reward, travelTime });
+            const contractType: ContractType = Math.random() < 0.3 ? 'BUY' : 'SELL';
+            if (contractType === 'SELL' && sellableItems.length === 0) continue;
+            if (contractType === 'BUY' && buyableItems.length === 0) continue;
+            const [itemId, itemData] = contractType === 'SELL' ? sellableItems[Math.floor(Math.random() * sellableItems.length)] : buyableItems[Math.floor(Math.random() * buyableItems.length)];
+            const maxContractValue = gameState.companyValue * 0.1;
+            const targetValue = Math.random() * maxContractValue;
+            const itemPrice = contractType === 'SELL' ? itemData.baseSellPrice : itemData.baseCost;
+            const quantity = Math.max(1, Math.floor(targetValue / itemPrice));
+            const travelTime = Math.floor(Math.random() * 3) + 1;
+            const profitMargin = 1 + (Math.random() * 0.15 + 0.05);
+            const costPremium = 1 + (Math.random() * 0.10 + 0.05);
+            const reward = contractType === 'SELL' ? Math.floor(quantity * itemData.baseSellPrice * profitMargin) : -Math.floor(quantity * itemData.baseCost * costPremium);
+            updatedContracts.push({ id: nanoid(), type: contractType, status: 'PENDING', itemId, quantity, reward, travelTime });
         }
         const nextContractInDays = Math.floor(Math.random() * 5) + 3;
-        nextContractDate = new Date(gameState.date.getTime() + nextContractInDays * 86400000);
+        finalNextContractDate = new Date(gameState.date.getTime() + nextContractInDays * 86400000);
       }
 
       const dailyIncome = 500;
@@ -152,7 +190,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const moneyChange = netIncome + moneyFromLogistics;
       allNewEvents.push(`Resumen diario. Ingresos: $${(dailyIncome + moneyFromLogistics).toLocaleString()}, Costos: $${finalDailyCosts.toLocaleString()}, Neto: $${moneyChange.toLocaleString()}`);
 
-      dispatch({ type: GameActionType.ADVANCE_DAY, payload: { updatedBuildings, updatedTrucks, updatedContracts, newInventory: tempInventory, moneyChange, newEvents: allNewEvents, nextContractDate }});
+      dispatch({ type: GameActionType.ADVANCE_DAY, payload: { updatedBuildings, updatedTrucks, updatedContracts, newInventory: tempInventory, moneyChange, newEvents: allNewEvents, nextContractDate: finalNextContractDate }});
 
       toastsToShow.forEach(toast => addToast(toast.message, toast.type));
       resolve();
@@ -171,22 +209,22 @@ export function GameProvider({ children }: { children: ReactNode }) {
       let newBuilding: Building;
       switch (type) {
           case 'FABRICA':
-            newBuilding = { id, type, level: 1, productionSlots: 2, efficiency: 100, maintenanceCost: 100, productionQueue: [] };
+            newBuilding = { id, type, level: 1, productionSlots: 2, efficiency: 100, maintenanceCost: 100, productionQueue: [], managerId: null };
             break;
           case 'ALMACEN':
             newBuilding = { id, type, level: 1, capacity: 1000, maintenanceCost: 50 };
             break;
           case 'LABORATORIO_ID':
-            newBuilding = { id, type, level: 1, researchSlots: 1, researchPointsPerDay: 5, maintenanceCost: 200 };
+            newBuilding = { id, type, level: 1, researchSlots: 1, researchPointsPerDay: 5, maintenanceCost: 200, managerId: null };
             break;
           case 'OFICINA_MARKETING':
-            newBuilding = { id, type, level: 1, campaignSlots: 1, brandAwareness: 10, maintenanceCost: 120 };
+            newBuilding = { id, type, level: 1, campaignSlots: 1, brandAwareness: 10, maintenanceCost: 120, managerId: null };
             break;
           case 'DEPARTAMENTO_RRHH':
-            newBuilding = { id, type, level: 1, maxEmployees: 10, trainingSpeedBonus: 0, maintenanceCost: 80 };
+            newBuilding = { id, type, level: 1, maxEmployees: 5, recruitmentLevel: 1, maintenanceCost: 80 };
             break;
           case 'CENTRO_LOGISTICA':
-            newBuilding = { id, type, level: 1, shippingCostReduction: 2, truckSlots: 1, maintenanceCost: 150 };
+            newBuilding = { id, type, level: 1, shippingCostReduction: 2, truckSlots: 1, maintenanceCost: 150, managerId: null };
             break;
       }
       const event = `¡${buildingInfo.name} construido exitosamente!`;
@@ -305,7 +343,71 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }));
   };
 
-  const value = { gameState, advanceDay, purchaseBuilding, startProduction, upgradeBuilding, sellItem, acceptContract, purchaseTruck };
+  const hireEmployee = async (candidateId: string) => {
+    await withLoading(() => new Promise<void>(resolve => {
+        const hrBuildings = gameState.buildings.filter(b => b.type === 'DEPARTAMENTO_RRHH') as IHumanResourcesDept[];
+        const totalMaxEmployees = hrBuildings.reduce((sum, b) => sum + b.maxEmployees, 0);
+        if (hrBuildings.length > 0 && gameState.employees.length >= totalMaxEmployees) {
+            addToast("Límite de empleados alcanzado. Mejora tu Departamento de RRHH para contratar más personal.", 'error');
+            resolve();
+            return;
+        }
+
+        const candidate = gameState.candidates.find(c => c.id === candidateId);
+        if (!candidate) { addToast("Este candidato ya no está disponible.", 'error'); resolve(); return; }
+        if (gameState.money < candidate.hiringFee) { addToast("No tienes suficiente dinero para la tarifa de contratación.", 'error'); resolve(); return; }
+
+        const specialtyName = SPECIALTY_DATA[candidate.specialty].name;
+        const event = `Has contratado a ${candidate.name} como tu nuevo ${specialtyName}.`;
+        dispatch({ type: GameActionType.HIRE_EMPLOYEE, payload: { candidate, event } });
+        addToast(`¡${candidate.name} ha sido contratado!`, 'success');
+        resolve();
+    }));
+  };
+
+  const fireEmployee = async (employeeId: string) => {
+    await withLoading(() => new Promise<void>(resolve => {
+        const employee = gameState.employees.find(e => e.id === employeeId);
+        if (!employee) { addToast("Empleado no encontrado.", 'error'); resolve(); return; }
+        const severanceCost = employee.salary * 7;
+        if (gameState.money < severanceCost) { addToast(`No tienes suficiente dinero para la indemnización ($${severanceCost.toLocaleString()}).`, 'error'); resolve(); return; }
+        const event = `${employee.name} ha sido despedido. Se pagó una indemnización de $${severanceCost.toLocaleString()}.`;
+        dispatch({ type: GameActionType.FIRE_EMPLOYEE, payload: { employeeId, severanceCost, event } });
+        addToast(`${employee.name} ha sido despedido.`, 'info');
+        resolve();
+    }));
+  };
+
+  const assignEmployee = async (employeeId: string, buildingId: string) => {
+    await withLoading(() => new Promise<void>(resolve => {
+        const employee = gameState.employees.find(e => e.id === employeeId);
+        const building = gameState.buildings.find(b => b.id === buildingId);
+        if (!employee || !building) { addToast("Empleado o edificio no válido.", 'error'); resolve(); return; }
+        if ('managerId' in building && building.managerId !== null) {
+            addToast("Este edificio ya tiene un gerente asignado.", 'error');
+            resolve();
+            return;
+        }
+        const event = `${employee.name} ha sido asignado a ${BUILDING_DATA[building.type].name} #${building.id.split('-')[1]}.`;
+        dispatch({ type: GameActionType.ASSIGN_EMPLOYEE, payload: { employeeId, buildingId, event } });
+        addToast("Empleado asignado.", 'success');
+        resolve();
+    }));
+  };
+
+  const unassignEmployee = async (employeeId: string) => {
+    await withLoading(() => new Promise<void>(resolve => {
+        const employee = gameState.employees.find(e => e.id === employeeId);
+        if (!employee || !employee.assignedBuildingId) { addToast("Este empleado no está asignado.", 'error'); resolve(); return; }
+        const building = gameState.buildings.find(b => b.id === employee.assignedBuildingId);
+        const event = `${employee.name} ha sido retirado de su puesto en ${BUILDING_DATA[building!.type].name}.`;
+        dispatch({ type: GameActionType.UNASSIGN_EMPLOYEE, payload: { employeeId, buildingId: employee.assignedBuildingId, event } });
+        addToast("Empleado desasignado.", 'success');
+        resolve();
+    }));
+  };
+
+  const value = { gameState, advanceDay, purchaseBuilding, startProduction, upgradeBuilding, sellItem, acceptContract, purchaseTruck, hireEmployee, fireEmployee, assignEmployee, unassignEmployee };
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>;
 }

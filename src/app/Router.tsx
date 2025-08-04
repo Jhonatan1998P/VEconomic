@@ -6,6 +6,7 @@ import DashboardView from '../features/dashboard/DashboardView';
 import BuildingsView from '../features/buildings/BuildingsView';
 import WarehouseView from '../features/warehouse/WarehouseView';
 import BuildingDetailView from '../features/buildings/BuildingDetailView';
+import HRView from '../features/hr/HRView';
 
 export const router = createBrowserRouter([
   {
@@ -27,6 +28,10 @@ export const router = createBrowserRouter([
       {
         path: 'warehouse',
         element: <WarehouseView />,
+      },
+      {
+        path: 'hr',
+        element: <HRView />,
       },
     ],
   },

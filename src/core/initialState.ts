@@ -1,6 +1,34 @@
-// --- START OF FILE VEconomic-main/src/core/initialState.ts ---
+// --- START OF FILE VEconom-main/src/core/initialState.ts ---
 
-import { IGameState } from "../types/game.types";
+import { ICandidate, IGameState } from "../types/game.types";
+import { nanoid } from 'nanoid';
+
+const initialCandidates: ICandidate[] = [
+  {
+    id: nanoid(),
+    name: "Juan Pérez",
+    age: 34,
+    sex: 'M',
+    specialty: 'FACTORY_MANAGER',
+    skillLevel: 25,
+    salary: 150,
+    hiringFee: 1000,
+    status: 'UNASSIGNED',
+    assignedBuildingId: null,
+  },
+  {
+    id: nanoid(),
+    name: "Ana García",
+    age: 28,
+    sex: 'F',
+    specialty: 'FACTORY_MANAGER',
+    skillLevel: 35,
+    salary: 210,
+    hiringFee: 1500,
+    status: 'UNASSIGNED',
+    assignedBuildingId: null,
+  }
+];
 
 export const INITIAL_GAME_STATE: IGameState = {
   playerName: "CEO Novato",
@@ -21,10 +49,23 @@ export const INITIAL_GAME_STATE: IGameState = {
       level: 1,
       capacity: 1000,
       maintenanceCost: 50
+    },
+    {
+      id: 'FABRICA-1',
+      type: 'FABRICA',
+      level: 1,
+      productionSlots: 2,
+      efficiency: 100,
+      maintenanceCost: 100,
+      productionQueue: [],
+      managerId: null,
     }
   ],
   events: ["¡Has fundado tu nueva empresa! ¡El futuro es tuyo!", "Has construido tu primer almacén para empezar."],
   trucks: [],
   contracts: [],
-  nextContractDate: new Date(2025, 0, 2), // First contracts appear on day 2
+  nextContractDate: new Date(2025, 0, 2),
+  employees: [],
+  candidates: initialCandidates,
+  nextCandidateRefreshDate: new Date(2025, 0, 4), // Candidates refresh every 3 days initially
 };

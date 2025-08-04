@@ -41,6 +41,7 @@ export default function App() {
           <li><NavLink to="/" className={navLinkStyle} onClick={() => setIsSidebarOpen(false)}><Icon name="dashboard" className="w-6 h-6"/><span>Dashboard</span></NavLink></li>
           <li><NavLink to="/buildings" className={navLinkStyle} onClick={() => setIsSidebarOpen(false)}><Icon name="factory" className="w-6 h-6"/><span>Edificios</span></NavLink></li>
           <li><NavLink to="/warehouse" className={navLinkStyle} onClick={() => setIsSidebarOpen(false)}><Icon name="warehouse" className="w-6 h-6"/><span>Almacén</span></NavLink></li>
+          <li><NavLink to="/hr" className={navLinkStyle} onClick={() => setIsSidebarOpen(false)}><Icon name="hr" className="w-6 h-6"/><span>RR.HH.</span></NavLink></li>
         </ul>
         <div className="mt-auto text-center text-xs text-gray-500 flex-shrink-0">
           <p>Jugador: {gameState.playerName}</p>

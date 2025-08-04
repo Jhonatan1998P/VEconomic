@@ -27,6 +27,10 @@ export default function FactoryView({ factory }: FactoryViewProps) {
   const [showLockedBlueprints, setShowLockedBlueprints] = useState(false);
   const factoryInfo = BUILDING_DATA[factory.type];
 
+  const manager = useMemo(() => factory.managerId ? gameState.employees.find(e => e.id === factory.managerId) : null, [factory.managerId, gameState.employees]);
+  const managerBonus = useMemo(() => manager ? manager.skillLevel / 2 : 0, [manager]);
+  const finalEfficiency = factory.efficiency + managerBonus;
+
   const producibleItems = useMemo(() =>
     Object.entries(ITEM_DATABASE)
       .map(([id, data]) => ({ ...data, id: id as ItemId }))
@@ -73,12 +77,16 @@ export default function FactoryView({ factory }: FactoryViewProps) {
             <h1 className="text-3xl md:text-4xl font-bold text-gray-100">
               Gestión de <span className="text-cyan-300">{factoryInfo.name}</span>
             </h1>
-            <p className="text-gray-400">Nivel {factory.level} • Eficiencia: {factory.efficiency}% • Espacios de Producción: {factory.productionQueue.length}/{factory.productionSlots}</p>
+            <p className="text-gray-400">
+              Nivel {factory.level} • Eficiencia: {finalEfficiency.toFixed(1)}% 
+              {managerBonus > 0 && <span className="text-green-400"> ({factory.efficiency}% + {managerBonus.toFixed(1)}%)</span>}
+              • Espacios: {factory.productionQueue.length}/{factory.productionSlots}
+            </p>
           </div>
         </div>
       </header>
 
-      <UpgradePanel factory={factory} money={gameState.money} onUpgrade={upgradeBuilding} />
+      <UpgradePanel factory={factory} money={gameState.money} onUpgrade={upgradeBuilding} finalEfficiency={finalEfficiency} managerBonus={managerBonus} managerName={manager?.name}/>
 
       <section>
         <h2 className="text-2xl font-semibold mb-4 text-gray-200">Cola de Producción</h2>
@@ -86,7 +94,7 @@ export default function FactoryView({ factory }: FactoryViewProps) {
           {factory.productionQueue.length > 0 ? (
             <div className="space-y-4">
               {factory.productionQueue.map((item, index) => (
-                <ProductionQueueCard key={index} item={item} />
+                <ProductionQueueCard key={index} item={item} factoryEfficiency={finalEfficiency} />
               ))}
             </div>
           ) : (
@@ -170,7 +178,7 @@ export default function FactoryView({ factory }: FactoryViewProps) {
   );
 }
 
-function UpgradePanel({ factory, money, onUpgrade }: { factory: IFactory, money: number, onUpgrade: (id: string) => void }) {
+function UpgradePanel({ factory, money, onUpgrade, finalEfficiency, managerBonus, managerName }: { factory: IFactory, money: number, onUpgrade: (id: string) => void, finalEfficiency: number, managerBonus: number, managerName?: string }) {
   const upgradeInfo = UPGRADE_DATA[factory.type];
   const nextLevel = factory.level + 1;
   const nextLevelInfo = upgradeInfo.levels[nextLevel];
@@ -193,7 +201,10 @@ function UpgradePanel({ factory, money, onUpgrade }: { factory: IFactory, money:
         <div className="text-center md:text-left">
           <p className="text-gray-400">Nivel Actual</p>
           <p className="text-3xl font-bold text-white">{factory.level}</p>
-          <p className="text-sm text-gray-300">Eficiencia: {factory.efficiency}%</p>
+          <p className="text-sm text-gray-300">Eficiencia: {finalEfficiency.toFixed(1)}%</p>
+          {managerBonus > 0 && (
+            <p className="text-xs text-green-400">Gestionado por {managerName}: +{managerBonus.toFixed(1)}%</p>
+          )}
           <p className="text-sm text-gray-300">Espacios: {factory.productionSlots}</p>
         </div>
         <div className="flex flex-col items-center justify-center">
@@ -220,9 +231,10 @@ function UpgradePanel({ factory, money, onUpgrade }: { factory: IFactory, money:
   );
 }
 
-function ProductionQueueCard({ item }: { item: ProductionQueueItem }) {
+function ProductionQueueCard({ item, factoryEfficiency }: { item: ProductionQueueItem, factoryEfficiency: number }) {
   const itemInfo = ITEM_DATABASE[item.itemId];
   const totalTime = (itemInfo.productionTime || 1) * item.quantity;
+  const timeRemainingWithBonus = item.timeRemaining / (factoryEfficiency / 100);
   const progress = Math.max(0, ((totalTime - item.timeRemaining) / totalTime) * 100);
 
   return (
@@ -231,7 +243,7 @@ function ProductionQueueCard({ item }: { item: ProductionQueueItem }) {
         <p className="font-bold text-lg text-white">{item.quantity}x {itemInfo.name}</p>
         <div className="flex items-center gap-2 text-sm text-gray-300">
           <Icon name="hourglass" className="w-5 h-5"/>
-          <span>{item.timeRemaining.toFixed(1)} días restantes</span>
+          <span>{timeRemainingWithBonus.toFixed(1)} días restantes</span>
         </div>
       </div>
       <div className="w-full bg-gray-900 rounded-full h-4 border-2 border-gray-600">
