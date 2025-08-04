@@ -109,7 +109,9 @@ export function gameReducer(state: IGameState, action: GameAction): IGameState {
         skillLevel: candidate.skillLevel,
         salary: candidate.salary,
         status: 'UNASSIGNED',
-        assignedBuildingId: null
+        assignedBuildingId: null,
+        age: candidate.age,
+        sex: candidate.sex
       };
       return {
         ...state,
