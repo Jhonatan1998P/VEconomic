@@ -1,5 +1,3 @@
-// --- START OF FILE VEconomic-main/src/context/GameContext.tsx ---
-
 import React, { createContext, useReducer, ReactNode } from 'react';
 import { useToast } from '../hooks/useToast';
 import { useLoading } from '../hooks/useLoading';
@@ -12,6 +10,8 @@ import { GameActionType } from './gameActionTypes';
 import { nanoid } from 'nanoid';
 import { SPECIALTY_DATA } from '../core/game-data/hr';
 import { generateRandomName } from '../core/game-data/names';
+import { generateNewContracts } from '../utils/contractGenerator';
+import { TRUCK_COST } from '../core/constants';
 
 export const BUILDING_DATA = {
   FABRICA: { name: 'Fábrica', cost: 5000, icon: 'factory' },
@@ -21,8 +21,6 @@ export const BUILDING_DATA = {
   DEPARTAMENTO_RRHH: { name: 'Departamento de RRHH', cost: 3500, icon: 'hr' },
   CENTRO_LOGISTICA: { name: 'Centro de Logística', cost: 6000, icon: 'logistics' },
 };
-
-export const TRUCK_COST = 10000;
 
 interface IGameContextType {
   gameState: IGameState;
@@ -102,22 +100,26 @@ export function GameProvider({ children }: { children: ReactNode }) {
           }
           if (truck.status === 'RETURNING') {
               allNewEvents.push(`Camión ${truck.name} ha regresado a la base.`);
+              let updatedTruck = { ...truck, status: 'IDLE' as const, jobId: null, timeRemaining: 0, jobsCompleted: truck.jobsCompleted + 1 };
               if(contract.type === 'SELL') {
                   moneyFromLogistics += contract.reward;
+                  updatedTruck.totalRevenue += contract.reward;
                   allNewEvents.push(`¡Contrato de venta completado! +$${contract.reward.toLocaleString()}`);
               } else {
                   tempInventory[contract.itemId] = (tempInventory[contract.itemId] || 0) + contract.quantity;
+                  updatedTruck.totalExpenses += (-contract.reward); // Reward is negative for BUY contracts
                   allNewEvents.push(`¡Contrato de compra completado! +${contract.quantity.toLocaleString()}x ${ITEM_DATABASE[contract.itemId].name}`);
               }
-              return { ...truck, status: 'IDLE' as const, jobId: null, timeRemaining: 0 };
+              return updatedTruck;
           }
           return truck;
       });
 
-      let updatedContracts = gameState.contracts.map(c => {
-          const completingTruck = updatedTrucks.find(t => t.jobId === c.id && t.status === 'IDLE');
-          return completingTruck ? { ...c, status: 'COMPLETED' as const } : c;
-      }).filter(c => c.status !== 'COMPLETED');
+      // Filter out completed contracts and expired contracts
+      const MAX_PENDING_CONTRACTS = 10;
+      let updatedContracts = gameState.contracts.filter(c => 
+        c.status === 'ACTIVE' || (c.status === 'PENDING' && c.expirationDate.getTime() > gameState.date.getTime())
+      );
 
       if (gameState.date >= gameState.nextCandidateRefreshDate) {
         const hrBuildings = gameState.buildings.filter(b => b.type === 'DEPARTAMENTO_RRHH') as IHumanResourcesDept[];
@@ -159,27 +161,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const logisticsCenter = gameState.buildings.find(b => b.type === 'CENTRO_LOGISTICA') as ILogisticsCenter | undefined;
       if (logisticsCenter && gameState.date >= gameState.nextContractDate) {
         allNewEvents.push("Nuevos informes de mercado han llegado al Centro de Logística.");
-        const maxContracts = logisticsCenter.level;
-        const factories = gameState.buildings.filter(b => b.type === 'FABRICA') as IFactory[];
-        const maxFactoryLevel = factories.length > 0 ? Math.max(...factories.map(f => f.level)) : 0;
-        const sellableItems = Object.entries(ITEM_DATABASE).filter(([,item]) => item.recipe && (item.requiredFactoryLevel || 1) <= maxFactoryLevel);
-        const buyableItems = Object.entries(ITEM_DATABASE).filter(([,item]) => !item.recipe);
-        while(updatedContracts.filter(c => c.status === 'PENDING').length < maxContracts) {
-            const contractType: ContractType = Math.random() < 0.3 ? 'BUY' : 'SELL';
-            if (contractType === 'SELL' && sellableItems.length === 0) continue;
-            if (contractType === 'BUY' && buyableItems.length === 0) continue;
-            const [itemId, itemData] = contractType === 'SELL' ? sellableItems[Math.floor(Math.random() * sellableItems.length)] : buyableItems[Math.floor(Math.random() * buyableItems.length)];
-            const maxContractValue = gameState.companyValue * 0.1;
-            const targetValue = Math.random() * maxContractValue;
-            const itemPrice = contractType === 'SELL' ? itemData.baseSellPrice : itemData.baseCost;
-            const quantity = Math.max(1, Math.floor(targetValue / itemPrice));
-            const travelTime = Math.floor(Math.random() * 3) + 1;
-            const profitMargin = 1 + (Math.random() * 0.15 + 0.05);
-            const costPremium = 1 + (Math.random() * 0.10 + 0.05);
-            const reward = contractType === 'SELL' ? Math.floor(quantity * itemData.baseSellPrice * profitMargin) : -Math.floor(quantity * itemData.baseCost * costPremium);
-            updatedContracts.push({ id: nanoid(), type: contractType, status: 'PENDING', itemId, quantity, reward, travelTime });
+        
+        const currentPendingCount = updatedContracts.filter(c => c.status === 'PENDING').length;
+        const slotsAvailable = MAX_PENDING_CONTRACTS - currentPendingCount;
+
+        if (slotsAvailable > 0) {
+            const numToGenerate = Math.min(logisticsCenter.level, slotsAvailable);
+            const newlyGeneratedContracts = generateNewContracts(gameState, numToGenerate, gameState.date);
+            updatedContracts = [...updatedContracts, ...newlyGeneratedContracts];
+        } else {
+            allNewEvents.push("El mercado de contratos está lleno. No se generaron nuevas ofertas.");
         }
-        const nextContractInDays = Math.floor(Math.random() * 5) + 3;
+
+        const nextContractInDays = Math.floor(Math.random() * 5) + 3; // New contracts every 3-7 days
         finalNextContractDate = new Date(gameState.date.getTime() + nextContractInDays * 86400000);
       }
 
@@ -335,7 +329,17 @@ export function GameProvider({ children }: { children: ReactNode }) {
             return;
         }
         const truckId = `truck-${gameState.trucks.length + 1}`;
-        const newTruck: ITruck = { id: truckId, name: `Camión ${gameState.trucks.length + 1}`, status: 'IDLE', jobId: null, timeRemaining: 0 };
+        const newTruck: ITruck = { 
+          id: truckId, 
+          name: `Camión ${gameState.trucks.length + 1}`, 
+          status: 'IDLE', 
+          jobId: null, 
+          timeRemaining: 0,
+          purchaseCost: TRUCK_COST, // Initialize purchase cost
+          totalRevenue: 0,
+          totalExpenses: 0,
+          jobsCompleted: 0,
+        };
         const event = `¡Has comprado un nuevo ${newTruck.name}!`;
         dispatch({ type: GameActionType.PURCHASE_TRUCK, payload: { newTruck, cost: TRUCK_COST, event }});
         addToast(event, 'success');

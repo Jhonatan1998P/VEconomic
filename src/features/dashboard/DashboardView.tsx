@@ -1,5 +1,6 @@
 import { useGame } from '../../hooks/useGame';
 import Icon, { IconName } from '../../icons/Icon';
+import { NavLink } from 'react-router-dom'; // Import NavLink
 
 export default function DashboardView() {
   const { gameState, advanceDay } = useGame();
@@ -64,15 +65,26 @@ export default function DashboardView() {
           </ul>
         </div>
 
-        <div className="bg-gray-800/50 p-6 rounded-lg shadow-inner">
+        <div className="bg-gray-800/50 p-6 rounded-lg shadow-inner flex flex-col">
            <h3 className="text-xl font-semibold mb-4">Acciones Rápidas</h3>
+           <div className="flex items-center justify-between mb-4">
+             <p className="text-lg font-bold text-gray-200">Día: {gameState.date.toLocaleDateString()}</p>
+           </div>
            <button
              onClick={advanceDay}
-             className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-all duration-300 ease-in-out transform hover:scale-105 flex items-center justify-center gap-3"
+             className="w-full bg-cyan-600 hover:bg-cyan-500 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-all duration-300 ease-in-out transform hover:scale-105 flex items-center justify-center gap-3 mb-4"
            >
              <Icon name="calendar" className="w-6 h-6" />
              <span>Avanzar un día</span>
            </button>
+           {/* New button for Buildings View */}
+           <NavLink
+             to="/buildings"
+             className="w-full bg-blue-600 hover:bg-blue-500 text-white font-bold py-3 px-6 rounded-lg shadow-md transition-all duration-300 ease-in-out transform hover:scale-105 flex items-center justify-center gap-3 mt-auto"
+           >
+             <Icon name="factory" className="w-6 h-6" />
+             <span>Gestionar Edificios</span>
+           </NavLink>
         </div>
       </div>
     </div>

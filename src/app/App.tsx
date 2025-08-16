@@ -1,9 +1,8 @@
-// --- START OF FILE VEconomic-main/src/app/App.tsx ---
-
 import { useState, useEffect } from 'react';
 import { Outlet, NavLink, useNavigation } from 'react-router-dom';
 import { useGame } from '../hooks/useGame';
 import Icon from '../icons/Icon';
+import { BuildingType } from '../types/game.types'; // Importación correcta del tipo
 
 export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -18,6 +17,10 @@ export default function App() {
     `flex items-center gap-3 px-4 py-2 rounded-md transition-colors duration-200 text-lg ${
       isActive ? 'bg-cyan-500/20 text-cyan-300 font-semibold' : 'text-gray-400 hover:bg-gray-700/50 hover:text-gray-200'
     }`;
+
+  // Acceder a los tipos de edificio como literales de cadena, no como propiedades de un tipo
+  const firstFactory = gameState.buildings.find(b => b.type === 'FABRICA');
+  const firstLogisticsCenter = gameState.buildings.find(b => b.type === 'CENTRO_LOGISTICA');
 
   return (
     <div className="bg-gray-900 text-white min-h-screen flex">
@@ -39,7 +42,12 @@ export default function App() {
         </div>
         <ul className="space-y-2 flex-grow">
           <li><NavLink to="/" className={navLinkStyle} onClick={() => setIsSidebarOpen(false)}><Icon name="dashboard" className="w-6 h-6"/><span>Dashboard</span></NavLink></li>
-          <li><NavLink to="/buildings" className={navLinkStyle} onClick={() => setIsSidebarOpen(false)}><Icon name="factory" className="w-6 h-6"/><span>Edificios</span></NavLink></li>
+          {firstFactory && (
+            <li><NavLink to={`/buildings/${firstFactory.id}`} className={navLinkStyle} onClick={() => setIsSidebarOpen(false)}><Icon name="factory" className="w-6 h-6"/><span>Fábrica</span></NavLink></li>
+          )}
+          {firstLogisticsCenter && (
+            <li><NavLink to={`/buildings/${firstLogisticsCenter.id}`} className={navLinkStyle} onClick={() => setIsSidebarOpen(false)}><Icon name="logistics" className="w-6 h-6"/><span>Logística</span></NavLink></li>
+          )}
           <li><NavLink to="/warehouse" className={navLinkStyle} onClick={() => setIsSidebarOpen(false)}><Icon name="warehouse" className="w-6 h-6"/><span>Almacén</span></NavLink></li>
           <li><NavLink to="/hr" className={navLinkStyle} onClick={() => setIsSidebarOpen(false)}><Icon name="hr" className="w-6 h-6"/><span>RR.HH.</span></NavLink></li>
         </ul>

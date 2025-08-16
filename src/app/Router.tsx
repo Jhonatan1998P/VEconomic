@@ -1,12 +1,10 @@
-// --- START OF FILE VEconomic-main/src/app/Router.tsx ---
-
 import { createBrowserRouter } from 'react-router-dom';
 import App from './App';
 import DashboardView from '../features/dashboard/DashboardView';
-import BuildingsView from '../features/buildings/BuildingsView';
-import WarehouseView from '../features/warehouse/WarehouseView';
+import BuildingsView from '../features/buildings/BuildingsView'; // Re-added import
 import BuildingDetailView from '../features/buildings/BuildingDetailView';
 import HRView from '../features/hr/HRView';
+import WarehouseView from '../features/warehouse/WarehouseView';
 
 export const router = createBrowserRouter([
   {
@@ -18,7 +16,7 @@ export const router = createBrowserRouter([
         element: <DashboardView />,
       },
       {
-        path: 'buildings',
+        path: 'buildings', // Re-added route for BuildingsView
         element: <BuildingsView />,
       },
       {

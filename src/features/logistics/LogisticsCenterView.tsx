@@ -1,13 +1,13 @@
-// --- START OF FILE VEconomic-main/src/features/logistics/LogisticsCenterView.tsx ---
-
-import React from 'react';
+import React, { useState } from 'react';
 import { useGame } from '../../hooks/useGame';
 import { NavLink } from 'react-router-dom';
 import Icon from '../../icons/Icon';
 import { ILogisticsCenter, ITruck, IContract } from '../../types/game.types';
 import { ITEM_DATABASE } from '../../core/game-data/items';
-import { TRUCK_COST } from '../../context/GameContext';
+import { TRUCK_COST } from '../../core/constants';
 import { UPGRADE_DATA } from '../../core/game-data/upgrades';
+import TruckOverviewModal from '../../components/modals/TruckOverviewModal';
+import TruckDetailModal from '../../components/modals/TruckDetailModal';
 
 
 type LogisticsCenterViewProps = {
@@ -16,13 +16,28 @@ type LogisticsCenterViewProps = {
 
 export default function LogisticsCenterView({ logisticsCenter }: LogisticsCenterViewProps) {
   const { gameState, purchaseTruck, acceptContract } = useGame();
+  const [isOverviewModalOpen, setIsOverviewModalOpen] = useState(false);
+  const [isDetailModal, setIsDetailModalOpen] = useState(false);
+  const [selectedTruck, setSelectedTruck] = useState<ITruck | null>(null);
 
   const canBuyTruck = gameState.trucks.length < logisticsCenter.truckSlots;
+
+  const handleOpenOverview = () => setIsOverviewModalOpen(true);
+  const handleCloseOverview = () => {
+    setIsOverviewModalOpen(false);
+    setSelectedTruck(null);
+  };
+
+  const handleOpenDetail = (truck: ITruck) => {
+    setSelectedTruck(truck);
+    setIsDetailModalOpen(true);
+  };
+  const handleCloseDetail = () => setIsDetailModalOpen(false);
 
   return (
     <div className="space-y-8 animate-fade-in">
       <header>
-        <NavLink to="/buildings" className="text-cyan-400 hover:text-cyan-300 transition-colors mb-4 inline-block">← Volver a Edificios</NavLink>
+        <NavLink to="/" className="text-cyan-400 hover:text-cyan-300 transition-colors mb-4 inline-block">← Volver a Dashboard</NavLink>
         <div className="flex items-center gap-4">
           <Icon name="logistics" className="w-12 h-12 text-cyan-300" />
           <div>
@@ -39,10 +54,11 @@ export default function LogisticsCenterView({ logisticsCenter }: LogisticsCenter
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-1 space-y-6">
           <h2 className="text-2xl font-semibold text-gray-200">Flota de Transporte</h2>
-          {gameState.trucks.map(truck => <TruckCard key={truck.id} truck={truck} />)}
-          {gameState.trucks.length === 0 && (
-            <p className="text-gray-500 text-center py-4">No tienes camiones. ¡Compra uno para empezar!</p>
-          )}
+          <FleetSummaryCard 
+            totalTrucks={gameState.trucks.length} 
+            idleTrucks={gameState.trucks.filter(t => t.status === 'IDLE').length}
+            onOpenOverview={handleOpenOverview}
+          />
           <button 
             onClick={purchaseTruck}
             disabled={!canBuyTruck || gameState.money < TRUCK_COST}
@@ -64,6 +80,21 @@ export default function LogisticsCenterView({ logisticsCenter }: LogisticsCenter
           </div>
         </div>
       </div>
+
+      {isOverviewModalOpen && (
+        <TruckOverviewModal 
+          trucks={gameState.trucks} 
+          onClose={handleCloseOverview} 
+          onSelectTruckForDetail={handleOpenDetail} 
+        />
+      )}
+
+      {isDetailModal && selectedTruck && (
+        <TruckDetailModal 
+          truck={selectedTruck} 
+          onClose={handleCloseDetail} 
+        />
+      )}
     </div>
   );
 }
@@ -119,28 +150,14 @@ function UpgradePanel({ logisticsCenter, money }: { logisticsCenter: ILogisticsC
   );
 }
 
-function TruckCard({ truck }: { truck: ITruck }) {
-  const getStatusInfo = () => {
-    switch(truck.status) {
-      case 'IDLE': return { text: 'Inactivo', color: 'text-green-400', icon: 'check-circle' as const };
-      case 'DELIVERING': return { text: 'En ruta', color: 'text-yellow-400', icon: 'hourglass' as const };
-      case 'RETURNING': return { text: 'Regresando', color: 'text-blue-400', icon: 'hourglass' as const };
-    }
-  }
-  const statusInfo = getStatusInfo();
-
+function FleetSummaryCard({ totalTrucks, idleTrucks, onOpenOverview }: { totalTrucks: number; idleTrucks: number; onOpenOverview: () => void; }) {
   return (
-    <div className="bg-gray-800 p-4 rounded-lg shadow-md border-l-4 border-gray-600">
-      <div className="flex justify-between items-center">
-        <h4 className="text-lg font-bold text-white">{truck.name}</h4>
-        <div className={`flex items-center gap-2 text-sm font-semibold ${statusInfo.color}`}>
-          <Icon name={statusInfo.icon} className="w-5 h-5" />
-          <span>{statusInfo.text}</span>
-        </div>
-      </div>
-      {truck.status !== 'IDLE' && (
-        <p className="text-sm text-gray-400 mt-1">Tiempo restante: {truck.timeRemaining} día(s)</p>
-      )}
+    <div className="bg-gray-800 p-4 rounded-lg shadow-md border-l-4 border-cyan-600 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-700 transition-colors" onClick={onOpenOverview}>
+      <Icon name="logistics" className="w-10 h-10 text-cyan-400 mb-2" />
+      <h4 className="text-xl font-bold text-white">Tu Flota de Camiones</h4>
+      <p className="text-gray-300 mt-1">Total: {totalTrucks} camiones</p>
+      <p className="text-gray-300">Disponibles: {idleTrucks} camiones</p>
+      <p className="text-sm text-cyan-400 mt-2">Haz clic para ver detalles</p>
     </div>
   );
 }
@@ -161,6 +178,7 @@ function ContractCard({ contract, onAccept }: { contract: IContract, onAccept: (
           <h4 className="text-xl font-bold text-white">{isSell ? 'Vender' : 'Comprar'}: {item.name}</h4>
           <p className="text-gray-400">Cantidad: {contract.quantity.toLocaleString()} unidades</p>
           <p className="text-gray-400">Duración del viaje: {contract.travelTime} día(s)</p>
+          <p className="text-gray-400 text-sm mt-1">Expira: {contract.expirationDate.toLocaleDateString()}</p>
         </div>
         <div className="text-right flex-shrink-0">
           <p className={`text-2xl font-bold ${isSell ? 'text-green-400' : 'text-red-400'}`}>

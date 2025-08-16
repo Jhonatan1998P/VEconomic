@@ -1,0 +1,1 @@
+export const TRUCK_COST = 10000;

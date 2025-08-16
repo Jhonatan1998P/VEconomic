@@ -1,5 +1,3 @@
-// --- START OF FILE VEconomic-main/src/context/gameReducer.ts ---
-
 import { IGameState, IEmployee } from "../types/game.types";
 import { GameAction, GameActionType } from "./gameActionTypes";
 
@@ -149,7 +147,7 @@ export function gameReducer(state: IGameState, action: GameAction): IGameState {
       const { employeeId, buildingId, event } = action.payload;
       return {
         ...state,
-        employees: state.employees.map(e => e.id === employeeId ? { ...e, status: 'ASSIGNED', assignedBuildingId: buildingId } : e),
+        employees: state.employees.map(e => e.id === employeeId ? { ...e, status: 'UNASSIGNED', assignedBuildingId: buildingId } : e),
         buildings: state.buildings.map(b => b.id === buildingId ? { ...b, managerId: employeeId } : b),
         events: [event, ...state.events].slice(0, 20),
       };

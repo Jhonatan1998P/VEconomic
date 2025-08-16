@@ -1,5 +1,3 @@
-// --- START OF FILE VEconomic-main/src/features/buildings/FactoryView.tsx ---
-
 import React, { useState, useMemo } from 'react';
 import { useGame } from '../../hooks/useGame';
 import { ITEM_DATABASE } from '../../core/game-data/items';
@@ -70,7 +68,7 @@ export default function FactoryView({ factory }: FactoryViewProps) {
   return (
     <div className="space-y-8 animate-fade-in">
       <header>
-        <NavLink to="/buildings" className="text-cyan-400 hover:text-cyan-300 transition-colors mb-4 inline-block">← Volver a Edificios</NavLink>
+        <NavLink to="/" className="text-cyan-400 hover:text-cyan-300 transition-colors mb-4 inline-block">← Volver a Dashboard</NavLink>
         <div className="flex items-center gap-4">
           <Icon name="factory" className="w-12 h-12 text-cyan-300" />
           <div>

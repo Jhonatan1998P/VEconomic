@@ -1,5 +1,3 @@
-// --- START OF FILE VEconomic-main/src/features/buildings/BuildingsView.tsx ---
-
 import { useGame } from '../../hooks/useGame';
 import { BUILDING_DATA } from '../../context/GameContext';
 import Icon, { IconName } from '../../icons/Icon';

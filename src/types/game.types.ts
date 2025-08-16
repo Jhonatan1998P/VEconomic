@@ -1,5 +1,3 @@
-// --- START OF FILE VEconomic-main/src/types/game.types.ts ---
-
 export type BuildingType = 'FABRICA' | 'ALMACEN' | 'LABORATORIO_ID' | 'OFICINA_MARKETING' | 'DEPARTAMENTO_RRHH' | 'CENTRO_LOGISTICA';
 
 export type ItemId = string;
@@ -86,6 +84,10 @@ export interface ITruck {
   status: TruckStatus;
   jobId: string | null;
   timeRemaining: number;
+  purchaseCost: number; // Nuevo: Costo inicial del camión
+  totalRevenue: number; // Nuevo: Ingresos generados por el camión
+  totalExpenses: number; // Nuevo: Gastos incurridos por el camión (ej. compras)
+  jobsCompleted: number; // Nuevo: Número de trabajos completados
 }
 
 export type ContractType = 'SELL' | 'BUY';
@@ -99,6 +101,7 @@ export interface IContract {
   quantity: number;
   reward: number; // Positive for SELL, negative for BUY
   travelTime: number; // Time for one-way trip
+  expirationDate: Date; // NEW: Date when the contract offer expires
 }
 
 export interface IEmployee {
