@@ -10,6 +10,17 @@ lerna-debug.log*
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
+
+
+# others
+ask.js
+askGemini.config.js
+gemini_chat_history.json
+gemini_token_usage.json
+gemini_run.log
+.gemini_cache.json
+
+
 # Runtime data
 pids
 *.pid
